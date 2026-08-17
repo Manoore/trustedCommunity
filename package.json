@@ -6,22 +6,51 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:setup": "tsx scripts/db-setup.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "tsx scripts/db-reset.ts",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:recs": "tsx scripts/migrate-recommendations.ts",
+    "seed:recs": "tsx scripts/seed-recommendations.ts",
+    "seed:social": "tsx scripts/seed-social.ts",
+    "check:network": "tsx scripts/check-network.ts",
+    "check:masking": "tsx scripts/check-masking.ts",
+    "check:recs": "tsx scripts/check-recommendations.ts",
+    "session": "tsx scripts/mint-session.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
+    "libphonenumber-js": "^1.13.11",
+    "next": "15.5.23",
+    "postgres": "^3.4.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.23"
+    "server-only": "^0.0.1",
+    "stripe": "^22.5.0",
+    "zipcodes": "^8.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
   }
 }

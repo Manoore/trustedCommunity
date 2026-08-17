@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: classifieds-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: classifieds
+      POSTGRES_PASSWORD: classifieds
+      POSTGRES_DB: classifieds
+    ports:
+      - "5433:5432"
+    volumes:
+      - classifieds-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U classifieds -d classifieds"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  classifieds-pgdata:

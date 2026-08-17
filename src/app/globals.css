@@ -1,26 +1,187 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Warm teal. Reads trustworthy without the coldness of a corporate blue. */
+  --color-brand-50: #effbf7;
+  --color-brand-100: #d5f5ea;
+  --color-brand-200: #aeead9;
+  --color-brand-300: #78d9c1;
+  --color-brand-400: #43c0a4;
+  --color-brand-500: #1fa78b;
+  --color-brand-600: #12866f;
+  --color-brand-700: #106b5b;
+  --color-brand-800: #11554a;
+  --color-brand-900: #10463e;
+
+  /* Coral, for warmth and calls to action that should feel human. */
+  --color-coral-50: #fff2ef;
+  --color-coral-100: #ffe1db;
+  --color-coral-200: #ffc4b8;
+  --color-coral-300: #ff9d88;
+  --color-coral-400: #ff8a75;
+  --color-coral-500: #f96a52;
+  --color-coral-600: #e04f36;
+  --color-coral-700: #bc3c26;
+
+  /* Gold, reserved for "my go-to" — the strongest thing you can say. */
+  --color-gold-100: #fdf0d1;
+  --color-gold-300: #fbd24e;
+  --color-gold-400: #fbbf24;
+  --color-gold-500: #f0a413;
+  --color-gold-600: #d18709;
+  --color-gold-700: #9a6407;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --surface: #ffffff;
+  --surface-muted: #fbf8f4;
+  --surface-sunken: #f3ede6;
+  --border: #eae2d8;
+  --border-strong: #d6cabb;
+  --text: #1c1a17;
+  --text-muted: #6b6459;
+  --ring: #12866f;
+
+  --shadow-card: 0 1px 2px rgba(28, 26, 23, 0.04), 0 4px 12px rgba(28, 26, 23, 0.04);
+  --shadow-lift: 0 2px 4px rgba(28, 26, 23, 0.06), 0 12px 28px rgba(28, 26, 23, 0.09);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #17161a;
+    --surface-muted: #100f12;
+    --surface-sunken: #201e24;
+    --border: #2c2930;
+    --border-strong: #423e48;
+    --text: #f2efe9;
+    --text-muted: #a49d94;
+    --ring: #43c0a4;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-lift: 0 12px 30px rgba(0, 0, 0, 0.5);
   }
 }
 
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+}
+
+* {
+  border-color: var(--border);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible focus everywhere - WCAG 2.4.7. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* ------------------------------------------------------------ decoration */
+
+/**
+ * Soft colour washes behind the hero and page headers. Pure CSS radial
+ * gradients — no image assets, and they degrade to a flat surface if the
+ * browser cannot paint them.
+ */
+.warm-wash {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.warm-wash::before {
+  content: "";
+  position: absolute;
+  inset: -40% -10% auto -10%;
+  height: 150%;
+  z-index: -1;
+  background:
+    radial-gradient(50% 55% at 18% 22%, rgba(249, 106, 82, 0.18), transparent 70%),
+    radial-gradient(45% 50% at 82% 12%, rgba(31, 167, 139, 0.2), transparent 72%),
+    radial-gradient(40% 45% at 62% 88%, rgba(251, 191, 36, 0.16), transparent 70%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .warm-wash::before {
+    background:
+      radial-gradient(50% 55% at 18% 22%, rgba(249, 106, 82, 0.16), transparent 70%),
+      radial-gradient(45% 50% at 82% 12%, rgba(31, 167, 139, 0.18), transparent 72%),
+      radial-gradient(40% 45% at 62% 88%, rgba(251, 191, 36, 0.1), transparent 70%);
+  }
+}
+
+/* Cards lift slightly on hover, so a long list feels alive under the cursor. */
+.lift {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+.stagger > * {
+  animation: rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 20ms; }
+.stagger > *:nth-child(2) { animation-delay: 55ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 125ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 195ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 230ms; }
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .lift:hover {
+    transform: none;
+  }
 }
