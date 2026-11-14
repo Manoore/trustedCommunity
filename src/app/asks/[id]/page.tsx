@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { categories, providers, recommendations } from "@/db/schema";
 import { Avatar, Badge, Button, Card, PageHeader } from "@/components/ui";
 import { AnswerAskForm } from "@/components/answer-ask-form";
+import { ShareBar } from "@/components/share-bar";
+import { getOrigin } from "@/lib/site";
 import { closeAskAction } from "@/app/actions/asks";
 import { requireUser } from "@/lib/guards";
 import { getAsk } from "@/lib/asks";
@@ -24,6 +26,7 @@ export default async function AskPage({ params }: Props) {
   if (!data) notFound();
 
   const { ask, authorName, categoryName, responses, isAuthor } = data;
+  const askUrl = `${await getOrigin()}/asks/${ask.id}`;
 
   // Answer options come from the responder's own list, so an answer is always a
   // recommendation they already stand behind.
@@ -64,6 +67,23 @@ export default async function AskPage({ params }: Props) {
       {ask.body && (
         <Card className="warm-wash">
           <p className="text-sm text-ink">{ask.body}</p>
+        </Card>
+      )}
+
+      {isAuthor && ask.status === "open" && (
+        <Card>
+          <h2 className="font-semibold text-ink">Nudge your circle</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            People you asked get an email, but a message in the group chat gets answered
+            faster. Only the connections and groups you picked can open the link.
+          </p>
+          <div className="mt-3">
+            <ShareBar
+              url={askUrl}
+              text={`Anyone know someone good? "${ask.title}" — answer here:`}
+              label="Share this ask"
+            />
+          </div>
         </Card>
       )}
 

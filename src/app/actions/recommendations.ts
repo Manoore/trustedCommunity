@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   categories,
@@ -217,6 +217,112 @@ export async function deleteRecommendationAction(formData: FormData) {
 
   revalidatePath("/list");
   redirect("/list");
+}
+
+/** Only same-site relative paths may be used as a post-action destination. */
+function safeReturn(value: FormDataEntryValue | null, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+  return value;
+}
+
+/**
+ * One-tap "+1": vouch for a contact someone else already added.
+ *
+ * Most members will back a recommendation long before they will fill in a
+ * form, so this is the cheapest way to add weight to a name. Two choices keep it
+ * honest:
+ *
+ *  - The relationship is recorded as "someone I trust recommended them", not
+ *    "I used them personally". A +1 must not put a first-hand claim in someone's
+ *    mouth that they did not make; they can upgrade it from the edit page.
+ *  - From a group page it is shared with that group. From anywhere else it is
+ *    saved privately - saving to your own list must never publish anything.
+ */
+export async function quickVouchAction(formData: FormData) {
+  const returnTo = safeReturn(formData.get("returnTo"), "/list");
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+
+  const limit = await rateLimit("recommendation", user.id);
+  if (!limit.ok) redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}vouch=limited`);
+
+  const providerId = String(formData.get("providerId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "") || null;
+  const sep = returnTo.includes("?") ? "&" : "?";
+
+  const [provider] = await db
+    .select({ id: providers.id })
+    .from(providers)
+    .where(and(eq(providers.id, providerId), isNull(providers.hiddenAt)))
+    .limit(1);
+  if (!provider) redirect(`${returnTo}${sep}vouch=missing`);
+
+  if (groupId) {
+    const mine = await getGroupIds(user.id);
+    if (!mine.includes(groupId)) redirect(`${returnTo}${sep}vouch=missing`);
+  }
+
+  // Borrow the category the group already files this contact under.
+  const [source] = await db
+    .select({ categoryId: recommendations.categoryId })
+    .from(recommendations)
+    .where(eq(recommendations.providerId, provider.id))
+    .orderBy(desc(recommendations.createdAt))
+    .limit(1);
+
+  const [existing] = await db
+    .select({ id: recommendations.id, visibility: recommendations.visibility })
+    .from(recommendations)
+    .where(
+      and(
+        eq(recommendations.recommenderUserId, user.id),
+        eq(recommendations.providerId, provider.id),
+      ),
+    )
+    .limit(1);
+
+  let recommendationId = existing?.id;
+
+  if (!existing) {
+    const [created] = await db
+      .insert(recommendations)
+      .values({
+        recommenderUserId: user.id,
+        providerId: provider.id,
+        categoryId: source?.categoryId ?? null,
+        relationship: "trusted_referral",
+        strength: "recommend",
+        visibility: groupId ? "groups" : "private",
+      })
+      .returning({ id: recommendations.id });
+    recommendationId = created.id;
+  } else if (groupId) {
+    // Already on their list. Only widen it to the group when it was private or
+    // already group-scoped; a connections/link audience is a deliberate choice
+    // and is not silently replaced.
+    if (existing.visibility === "private") {
+      await db
+        .update(recommendations)
+        .set({ visibility: "groups", updatedAt: new Date() })
+        .where(eq(recommendations.id, existing.id));
+    } else if (existing.visibility !== "groups") {
+      redirect(`${returnTo}${sep}vouch=exists`);
+    }
+  } else {
+    redirect(`${returnTo}${sep}vouch=exists`);
+  }
+
+  if (groupId && recommendationId) {
+    await db
+      .insert(recommendationGroups)
+      .values({ recommendationId, groupId })
+      .onConflictDoNothing();
+  }
+
+  revalidatePath("/list");
+  revalidatePath(returnTo.split("?")[0]);
+  redirect(`${returnTo}${sep}vouch=${groupId ? "group" : "saved"}`);
 }
 
 /* ------------------------------------------------------------ share links */

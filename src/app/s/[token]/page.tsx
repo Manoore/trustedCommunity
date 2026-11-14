@@ -6,6 +6,9 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { Card, LinkButton } from "@/components/ui";
 import { RecommendationCard } from "@/components/recommendation-card";
+import { ShareBar } from "@/components/share-bar";
+import { getCurrentUser } from "@/lib/auth";
+import { getOrigin } from "@/lib/site";
 import {
   bumpShareView,
   getShareLinkByToken,
@@ -52,7 +55,12 @@ export default async function SharedPage({ params }: Props) {
     .where(eq(users.id, link.userId))
     .limit(1);
 
-  await bumpShareView(token);
+  const viewer = await getCurrentUser();
+  const isOwner = viewer?.id === link.userId;
+  const shareUrl = `${await getOrigin()}/s/${token}`;
+
+  // Your own refreshes should not inflate the view count.
+  if (!isOwner) await bumpShareView(token);
 
   const ownerName = owner?.name ?? "Someone";
 
@@ -63,6 +71,22 @@ export default async function SharedPage({ params }: Props) {
 
     return (
       <div className="mx-auto max-w-xl space-y-6">
+        {isOwner && (
+          <Card className="warm-wash">
+            <h2 className="font-semibold text-ink">Send this to someone</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Anyone with the link can open it — no account needed.
+            </p>
+            <div className="mt-3">
+              <ShareBar
+                url={shareUrl}
+                text={`I recommend ${rec.name}:`}
+                label="Share this recommendation"
+              />
+            </div>
+          </Card>
+        )}
+
         <div>
           <p className="text-sm font-medium text-brand-600">
             {ownerName} recommends
@@ -94,6 +118,24 @@ export default async function SharedPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {isOwner && (
+        <Card className="warm-wash">
+          <h2 className="font-semibold text-ink">Send your list to someone</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Anyone with the link sees the {items.length}{" "}
+            {items.length === 1 ? "entry" : "entries"} you marked &ldquo;anyone with the
+            link&rdquo; — nothing else.
+          </p>
+          <div className="mt-3">
+            <ShareBar
+              url={shareUrl}
+              text="These are the people I'd send you to:"
+              label="Share my list"
+            />
+          </div>
+        </Card>
+      )}
+
       <div>
         <p className="text-sm font-medium text-brand-600">Shared list</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">

@@ -10,6 +10,7 @@ import {
   shareLinks,
   users,
 } from "@/db/schema";
+import { profileVouchCondition, viewerScope } from "@/lib/social";
 
 /** The category's parent group, e.g. "Home & Property Services". */
 const parentCategory = alias(categories, "parent_category");
@@ -61,6 +62,7 @@ const baseSelect = {
   otherRecommenders: sql<number>`(
     SELECT count(*)::int FROM recommendations r2
     WHERE r2.provider_id = ${providers.id}
+      AND r2.visibility <> 'private'
       AND r2.recommender_user_id <> ${recommendations.recommenderUserId}
   )`,
 };
@@ -152,7 +154,7 @@ const contactPublicColumns = {
 };
 
 /** A contact profile plus everyone who has vouched for them. */
-export async function getContactProfile(slug: string) {
+export async function getContactProfile(slug: string, viewerId: string | null = null) {
   const rows = await db
     .select(contactPublicColumns)
     .from(providers)
@@ -161,6 +163,11 @@ export async function getContactProfile(slug: string) {
 
   if (!rows.length) return null;
   const provider = rows[0];
+
+  // Only the vouches this viewer is entitled to see. The count shown on the
+  // page is derived from this same list, so it never reveals that a hidden
+  // vouch exists.
+  const { connectionIds, groupIds } = await viewerScope(viewerId);
 
   const vouches = await db
     .select({
@@ -178,7 +185,12 @@ export async function getContactProfile(slug: string) {
     .from(recommendations)
     .innerJoin(users, eq(users.id, recommendations.recommenderUserId))
     .leftJoin(categories, eq(categories.id, recommendations.categoryId))
-    .where(eq(recommendations.providerId, provider.id))
+    .where(
+      and(
+        eq(recommendations.providerId, provider.id),
+        profileVouchCondition(viewerId, connectionIds, groupIds),
+      ),
+    )
     .orderBy(desc(recommendations.createdAt));
 
   return { provider, vouches };

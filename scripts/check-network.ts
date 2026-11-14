@@ -113,6 +113,42 @@ async function main() {
     anonView.status === 307 || anonView.status === 404,
   );
 
+  /* ------------------------------ group ranking and profile visibility */
+
+  assert(
+    "the group page ranks contacts by how many members vouch",
+    memberView.html.includes("Most recommended here") &&
+      /\d+\s*(<!-- -->)?\s*members?/.test(memberView.html),
+  );
+  assert(
+    "the group ranking exposes no phone numbers",
+    !/\(937\) 555-03\d\d/.test(
+      memberView.html.split("Most recommended here")[1]?.split("Every recommendation")[0] ?? "",
+    ),
+  );
+
+  const [sunrise] = (await db.execute(sql`
+    SELECT slug FROM providers WHERE display_name = 'Sunrise Roofing' LIMIT 1
+  `)) as unknown as Array<{ slug: string }>;
+
+  if (sunrise) {
+    const connectionView = await fetchPage(`/p/${sunrise.slug}`, buyer.token);
+    assert(
+      "a connection sees a connections-scoped vouch on the profile",
+      connectionView.html.includes("insurance adjuster"),
+    );
+    const strangerView = await fetchPage(`/p/${sunrise.slug}`, stranger.token);
+    assert(
+      "someone outside the network does NOT see it on the profile",
+      !strangerView.html.includes("insurance adjuster"),
+    );
+    const anonView2 = await fetchPage(`/p/${sunrise.slug}`);
+    assert(
+      "a signed-out visitor does NOT see it on the profile",
+      !anonView2.html.includes("insurance adjuster"),
+    );
+  }
+
   /* ------------------------------------------------------------- asks */
 
   const asksPage = await fetchPage("/asks", buyer.token);

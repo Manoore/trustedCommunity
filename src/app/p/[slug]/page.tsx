@@ -4,7 +4,10 @@ import type { Metadata } from "next";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { recommendations } from "@/db/schema";
-import { Alert, Avatar, Badge, Card, LinkButton } from "@/components/ui";
+import { Alert, Avatar, Badge, Button, Card, LinkButton } from "@/components/ui";
+import { ShareBar } from "@/components/share-bar";
+import { quickVouchAction } from "@/app/actions/recommendations";
+import { getOrigin } from "@/lib/site";
 import { avatarColor, initials } from "@/lib/category-colors";
 import { getCurrentUser } from "@/lib/auth";
 import { getProviderContact } from "@/lib/queries";
@@ -24,9 +27,19 @@ const strengthTone = {
   recommend: "brand",
 } as const;
 
+const VOUCH_NOTICES: Record<string, { tone: "success" | "info" | "error"; text: string }> = {
+  saved: {
+    tone: "success",
+    text: "Saved to your list, privately. Edit it to say how you know them or to share it.",
+  },
+  exists: { tone: "info", text: "They are already on your list." },
+  limited: { tone: "error", text: "Slow down a little — try again in a few minutes." },
+  missing: { tone: "error", text: "That contact is no longer available." },
+};
+
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ listed?: string }>;
+  searchParams: Promise<{ listed?: string; vouch?: string }>;
 };
 
 export async function generateMetadata({
@@ -39,12 +52,13 @@ export async function generateMetadata({
 
 export default async function ContactProfilePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { listed } = await searchParams;
-  const data = await getContactProfile(slug);
+  const { listed, vouch } = await searchParams;
+  const vouchNotice = vouch ? VOUCH_NOTICES[vouch] : null;
+  const user = await getCurrentUser();
+  const data = await getContactProfile(slug, user?.id ?? null);
   if (!data) notFound();
 
   const { provider, vouches } = data;
-  const user = await getCurrentUser();
   const isOwner = provider.createdByUserId === user?.id;
 
   const myVouch = user
@@ -75,6 +89,7 @@ export default async function ContactProfilePage({ params, searchParams }: Props
   // Fetched only once we know the viewer may see it.
   const contact = showPhone ? await getProviderContact(provider.id) : null;
   const location = [provider.city, provider.state].filter(Boolean).join(", ");
+  const profileUrl = `${await getOrigin()}/p/${provider.slug}`;
 
   const selfListedNoVouches = Boolean(provider.selfListedAt) && vouches.length === 0;
 
@@ -123,7 +138,7 @@ export default async function ContactProfilePage({ params, searchParams }: Props
             <span aria-hidden="true">♥</span>
             {vouches.length > 0
               ? `Recommended by ${vouches.length} ${vouches.length === 1 ? "person" : "people"}`
-              : "Not recommended by anyone yet"}
+              : "No recommendations you can see yet"}
           </p>
         </div>
 
@@ -135,11 +150,21 @@ export default async function ContactProfilePage({ params, searchParams }: Props
             Edit my recommendation
           </LinkButton>
         ) : user ? (
-          <LinkButton href="/recommendations/new" variant="coral">
-            I recommend them too
+          <form action={quickVouchAction}>
+            <input type="hidden" name="providerId" value={provider.id} />
+            <input type="hidden" name="returnTo" value={`/p/${provider.slug}`} />
+            <Button type="submit" variant="coral">
+              Save to my list
+            </Button>
+          </form>
+        ) : (
+          <LinkButton href={`/login?next=${encodeURIComponent(`/p/${provider.slug}`)}`} variant="coral">
+            Sign in to save
           </LinkButton>
-        ) : null}
+        )}
       </section>
+
+      {vouchNotice && <Alert tone={vouchNotice.tone}>{vouchNotice.text}</Alert>}
 
       {selfListedNoVouches && (
         <Alert tone="info">
@@ -234,6 +259,20 @@ export default async function ContactProfilePage({ params, searchParams }: Props
           </div>
         )}
       </section>
+
+      <Card>
+        <h2 className="text-sm font-semibold text-ink">Pass {provider.displayName} on</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Know someone who needs this? Send them the profile.
+        </p>
+        <div className="mt-3">
+          <ShareBar
+            url={profileUrl}
+            text={`${provider.displayName} — recommended on Trusted By:`}
+            label="Share this profile"
+          />
+        </div>
+      </Card>
 
       {isIndividual && (
         <Alert tone="info">

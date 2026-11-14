@@ -133,7 +133,7 @@ export async function discover(
       ${degreeExpr} AS degree,
       (
         SELECT count(*)::int FROM recommendations r2
-        WHERE r2.provider_id = p.id
+        WHERE r2.provider_id = p.id AND r2.visibility <> 'private'
       ) AS other_recommenders
     FROM recommendations r
     JOIN providers p ON p.id = r.provider_id
@@ -173,6 +173,85 @@ export async function discover(
   });
 }
 
+export type GroupTopContact = {
+  providerId: string;
+  slug: string;
+  name: string;
+  kind: "business" | "individual";
+  city: string | null;
+  state: string | null;
+  categoryName: string | null;
+  groupSlug: string | null;
+  /** Distinct members of this group who vouch for them. */
+  members: number;
+  /** Of those, how many say they used them personally. */
+  usedPersonally: number;
+  /** Whether the viewer already backs this contact. */
+  mine: boolean;
+  topNote: string | null;
+  topNoteAuthor: string | null;
+};
+
+/**
+ * One row per contact, ranked by how many members of the group vouch for them.
+ *
+ * This is the part that makes a group useful on day one: "Mike's Plumbing -
+ * 7 members" says far more than seven separate cards. Only vouches that were
+ * explicitly shared into this group count, so a private or connections-only
+ * entry can never inflate - or reveal - a number here. Deliberately no phone
+ * number: it links to the profile, where the privacy rules for individuals
+ * are already enforced in one place.
+ */
+export async function getGroupTopContacts(
+  groupId: string,
+  viewerId: string,
+): Promise<GroupTopContact[]> {
+  const rows = (await db.execute(sql`
+    SELECT
+      p.id AS provider_id, p.slug, p.display_name AS name, p.kind, p.city, p.state,
+      (array_agg(c.name ORDER BY r.created_at DESC) FILTER (WHERE c.name IS NOT NULL))[1] AS category_name,
+      (array_agg(pc.slug ORDER BY r.created_at DESC) FILTER (WHERE pc.slug IS NOT NULL))[1] AS group_slug,
+      count(DISTINCT r.recommender_user_id)::int AS members,
+      (count(DISTINCT r.recommender_user_id)
+        FILTER (WHERE r.relationship = 'used_personally'))::int AS used_personally,
+      bool_or(r.recommender_user_id = ${viewerId}::uuid) AS mine,
+      (array_agg(r.note ORDER BY
+         CASE r.strength WHEN 'go_to' THEN 0 WHEN 'highly_recommend' THEN 1 ELSE 2 END,
+         r.created_at DESC
+       ) FILTER (WHERE r.note IS NOT NULL AND r.note <> ''))[1] AS top_note,
+      (array_agg(u.name ORDER BY
+         CASE r.strength WHEN 'go_to' THEN 0 WHEN 'highly_recommend' THEN 1 ELSE 2 END,
+         r.created_at DESC
+       ) FILTER (WHERE r.note IS NOT NULL AND r.note <> ''))[1] AS top_note_author
+    FROM recommendation_groups rg
+    JOIN recommendations r ON r.id = rg.recommendation_id AND r.visibility = 'groups'
+    JOIN providers p ON p.id = r.provider_id AND p.hidden_at IS NULL
+    JOIN users u ON u.id = r.recommender_user_id
+    LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN categories pc ON pc.id = c.parent_id
+    WHERE rg.group_id = ${groupId}::uuid
+    GROUP BY p.id
+    ORDER BY members DESC, used_personally DESC, max(r.created_at) DESC
+    LIMIT 25
+  `)) as unknown as Array<Record<string, unknown>>;
+
+  return rows.map((row) => ({
+    providerId: String(row.provider_id),
+    slug: String(row.slug),
+    name: String(row.name),
+    kind: row.kind as "business" | "individual",
+    city: (row.city as string) ?? null,
+    state: (row.state as string) ?? null,
+    categoryName: (row.category_name as string) ?? null,
+    groupSlug: (row.group_slug as string) ?? null,
+    members: Number(row.members ?? 0),
+    usedPersonally: Number(row.used_personally ?? 0),
+    mine: Boolean(row.mine),
+    topNote: (row.top_note as string) ?? null,
+    topNoteAuthor: (row.top_note_author as string) ?? null,
+  }));
+}
+
 /** Recommendations explicitly shared into one group. */
 export async function getGroupRecommendations(groupId: string, viewerId: string) {
   const rows = (await db.execute(sql`
@@ -185,7 +264,9 @@ export async function getGroupRecommendations(groupId: string, viewerId: string)
       u.name AS recommender_name,
       (
         SELECT count(*)::int FROM recommendations r2
-        WHERE r2.provider_id = p.id AND r2.recommender_user_id <> r.recommender_user_id
+        WHERE r2.provider_id = p.id
+          AND r2.visibility <> 'private'
+          AND r2.recommender_user_id <> r.recommender_user_id
       ) AS other_recommenders
     FROM recommendation_groups rg
     JOIN recommendations r ON r.id = rg.recommendation_id

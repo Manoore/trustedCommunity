@@ -80,6 +80,35 @@ async function main() {
     ownerProfile.html.includes(individual.phone ?? "@@"),
   );
 
+  /* ---------------------------------- vouch visibility on the profile */
+
+  // Regression: a profile used to list every vouch regardless of audience, so a
+  // private note was readable by anyone holding the URL.
+  const [priya] = await db
+    .select({ slug: providers.slug })
+    .from(providers)
+    .where(eq(providers.displayName, "Priya Nair"))
+    .limit(1);
+
+  if (priya) {
+    const anonPriya = await fetchPage(`/p/${priya.slug}`);
+    assert(
+      "anonymous: a PRIVATE vouch's note is not readable on the profile",
+      !anonPriya.html.includes("algebra"),
+    );
+    const ownerPriya = await fetchPage(`/p/${priya.slug}`, token);
+    assert(
+      "the author still sees their own private vouch",
+      ownerPriya.html.includes("algebra"),
+    );
+  }
+
+  const anonMike = await fetchPage(`/p/${business.slug}`);
+  assert(
+    "anonymous: a LINK-scoped vouch is visible on the profile (author chose that)",
+    anonMike.html.includes("came out the same day"),
+  );
+
   /* --------------------------------------------------- share visibility */
 
   const shareToken = randomBytes(9).toString("base64url");

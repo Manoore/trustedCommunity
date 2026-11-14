@@ -254,6 +254,56 @@ export function visibilityCondition(
   return sql`(${sql.join(clauses, sql` OR `)})`;
 }
 
+/**
+ * Who may see a vouch on a contact's own profile page.
+ *
+ * Differs from `visibilityCondition` in one deliberate way: `link` entries are
+ * included. A feed must never make a link-shared entry browsable, but a profile
+ * is reached by someone who already holds that contact's URL, and the author
+ * chose "anyone with the link" - hiding it here would make the setting useless.
+ * Everything else follows the normal rule, so a private note or a
+ * connections-only vouch never reaches a stranger through a profile.
+ */
+export function profileVouchCondition(
+  viewerId: string | null,
+  connectionIds: string[],
+  groupIds: string[],
+  alias = "recommendations",
+): SQL {
+  const r = sql.raw(alias);
+  const clauses: SQL[] = [sql`${r}.visibility = 'link'`];
+
+  if (viewerId) {
+    clauses.push(sql`${r}.recommender_user_id = ${viewerId}::uuid`);
+  }
+
+  if (connectionIds.length) {
+    clauses.push(sql`(
+      ${r}.visibility = 'connections'
+      AND ${r}.recommender_user_id IN (${sql.join(
+        connectionIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})
+    )`);
+  }
+
+  if (groupIds.length) {
+    clauses.push(sql`(
+      ${r}.visibility = 'groups'
+      AND EXISTS (
+        SELECT 1 FROM recommendation_groups rg
+        WHERE rg.recommendation_id = ${r}.id
+          AND rg.group_id IN (${sql.join(
+            groupIds.map((id) => sql`${id}::uuid`),
+            sql`, `,
+          )})
+      )
+    )`);
+  }
+
+  return sql`(${sql.join(clauses, sql` OR `)})`;
+}
+
 /** Convenience wrapper that loads the viewer's circles first. */
 export async function viewerScope(viewerId: string | null) {
   if (!viewerId) {
