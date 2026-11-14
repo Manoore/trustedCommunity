@@ -7,6 +7,8 @@ import { db } from "@/db";
 import { categories, providers, recommendations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { parseContacts } from "@/lib/import-contacts";
+import { isKnownCountry } from "@/lib/countries";
+import { isCategoryBlocked } from "@/lib/professional";
 import { normalizePhone } from "@/lib/phone";
 import { rateLimit, rateLimitMessage } from "@/lib/rate-limit";
 import { uniqueSlug } from "@/lib/slug";
@@ -101,11 +103,15 @@ export async function confirmImportAction(
   }
 
   const [category] = await db
-    .select({ id: categories.id, restricted: categories.restricted })
+    .select({
+      id: categories.id,
+      restricted: categories.restricted,
+      professional: categories.professional,
+    })
     .from(categories)
     .where(eq(categories.id, categoryId))
     .limit(1);
-  if (!category || category.restricted) {
+  if (!category || isCategoryBlocked(category)) {
     return { ok: false, message: "Pick an accepted category." };
   }
 
@@ -145,6 +151,8 @@ export async function confirmImportAction(
           displayName: name,
           contactPhone: phone.display,
           normalizedPhone: phone.e164,
+          // A +91 number is a contact in India, not an American one.
+          country: phone.country && isKnownCountry(phone.country) ? phone.country : "US",
           status: "active",
           createdByUserId: user.id,
         })

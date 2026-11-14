@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   confirmImportAction,
   previewImportAction,
@@ -10,11 +10,55 @@ import { Alert, Badge, Button, Card, Field, Select, Textarea } from "@/component
 import type { CategoryGroup } from "@/components/listing-form";
 import { idleState } from "@/lib/validation";
 
-export function ImportForm({ categoryGroups }: { categoryGroups: CategoryGroup[] }) {
+type ContactsApi = {
+  select: (
+    props: string[],
+    opts?: { multiple?: boolean },
+  ) => Promise<Array<{ name?: string[]; tel?: string[] }>>;
+};
+
+export function ImportForm({
+  categoryGroups,
+  initialText = "",
+}: {
+  categoryGroups: CategoryGroup[];
+  /** Text handed over by the phone's share sheet. */
+  initialText?: string;
+}) {
   const [preview, previewAction, previewPending] = useActionState<
     ImportPreviewState,
     FormData
   >(previewImportAction, idleState);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+
+  // Only Chrome on Android exposes this. Elsewhere the button simply is not shown.
+  const supportsPicker =
+    typeof navigator !== "undefined" &&
+    "contacts" in navigator &&
+    typeof window !== "undefined" &&
+    "ContactsManager" in window;
+
+  async function pickFromPhone() {
+    setPickerError(null);
+    try {
+      const api = (navigator as unknown as { contacts: ContactsApi }).contacts;
+      const picked = await api.select(["name", "tel"], { multiple: true });
+      const lines = picked
+        .map((c) => {
+          const name = c.name?.[0]?.trim();
+          const tel = c.tel?.[0]?.trim();
+          return name && tel ? `${name}, ${tel}` : null;
+        })
+        .filter(Boolean);
+      if (textRef.current && lines.length) {
+        const existing = textRef.current.value.trim();
+        textRef.current.value = [existing, ...lines].filter(Boolean).join("\n");
+      }
+    } catch {
+      setPickerError("Could not open your contacts. You can paste them instead.");
+    }
+  }
   const [confirm, confirmAction, confirmPending] = useActionState(
     confirmImportAction,
     idleState,
@@ -41,15 +85,24 @@ export function ImportForm({ categoryGroups }: { categoryGroups: CategoryGroup[]
             <Textarea
               id="raw"
               name="raw"
+              ref={textRef}
               rows={8}
-              defaultValue={preview.raw ?? ""}
+              defaultValue={preview.raw ?? initialText}
               placeholder={"Mike's Plumbing, 937-555-0148\nDave's Electric, 937-555-0210"}
               required
             />
           </Field>
-          <Button type="submit" variant="secondary" disabled={previewPending}>
-            {previewPending ? "Reading…" : "Preview"}
-          </Button>
+          {pickerError && <Alert tone="error">{pickerError}</Alert>}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="secondary" disabled={previewPending}>
+              {previewPending ? "Reading…" : "Preview"}
+            </Button>
+            {supportsPicker && (
+              <Button type="button" variant="ghost" onClick={pickFromPhone}>
+                📇 Pick from my phone
+              </Button>
+            )}
+          </div>
         </form>
       </Card>
 

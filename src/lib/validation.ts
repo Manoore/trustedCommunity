@@ -116,7 +116,7 @@ export const reviewSchema = z.object({
 });
 
 export const reportSchema = z.object({
-  targetType: z.enum(["listing", "review", "provider", "message"]),
+  targetType: z.enum(["listing", "review", "provider", "message", "help_post"]),
   targetId: z.string().uuid(),
   reason: z.enum([
     "spam",
@@ -125,6 +125,8 @@ export const reportSchema = z.object({
     "offensive",
     "unlicensed-work",
     "impersonation",
+    "unsafe",
+    "asked-for-money",
     "other",
   ]),
   details: z.string().trim().max(2000).optional().or(z.literal("")),
@@ -177,6 +179,10 @@ export const recommendationSchema = z.object({
   kind: z.enum(["business", "individual"]),
   categoryId: z.string().uuid("Pick a category."),
   zip: z.string().trim().optional().or(z.literal("")),
+  /** ISO country of the contact. US unless they are somewhere else. */
+  country: z.string().trim().max(2).optional().or(z.literal("")),
+  /** Free-text city, used instead of a ZIP outside the US. */
+  city: z.string().trim().max(80).optional().or(z.literal("")),
   websiteUrl: z.string().trim().url("Enter a full URL.").optional().or(z.literal("")),
   relationship: z.enum(relationshipValues),
   strength: z.enum(strengthValues),

@@ -30,11 +30,15 @@ npm run db:up
 cp .env.example .env.local
 ```
 
-Schema, in order (the first step is separate because `drizzle-kit push` offers to
-truncate `providers` when adding the unique phone constraint — never accept that):
+Schema, in order (the first two steps are separate because `drizzle-kit push` offers to
+truncate `providers` / `users` when adding a unique constraint — never accept that):
 
 ```bash
 npm run db:migrate:recs
+```
+
+```bash
+npm run db:migrate:arrival
 ```
 
 ```bash
@@ -57,6 +61,16 @@ npm run seed:recs
 
 ```bash
 npm run seed:social
+```
+
+```bash
+npm run seed:colleges
+```
+
+Optional demo of the arrival board (Wright State, verified students, posts):
+
+```bash
+npm run seed:arrival
 ```
 
 Run it:
@@ -90,6 +104,11 @@ All use password `Password123!`.
 | `npm run seed:social` | Connections, a group, an open ask |
 | `npm run session <email>` | Mint a session cookie for testing |
 | `npm run check:recs <token>` | Privacy, sharing, dedupe |
+| `npm run db:migrate:arrival` | `users.edu_email` + its unique constraint (run before `db:push`) |
+| `npm run seed:colleges` | Colleges that anchor communities |
+| `npm run seed:arrival` | Demo: verified students, help posts, a contact back home |
+| `npm run check:arrival` | Arrival board: verification, contact reveal, fair-housing guard |
+| `npm run check:imports` | No client component imports a `server-only` module |
 | `npm run check:network` | Visibility scopes, groups, discovery, asks |
 | `npm run check:masking <token>` | Masking on the parked directory |
 
@@ -111,7 +130,12 @@ All use password `Password123!`.
 | `/s/[token]` | Public share card or list, with a generated preview image |
 | `/claim/[slug]` | How someone listed here gets out, without an account |
 | `/business/claim` | A business owner listing themselves directly |
-| `/admin/*` | Claims, removals, reports, moderation |
+| `/arrive` | New to a country: pick a college, verify a `.edu` address, checklist, essentials |
+| `/help` `/help/new` `/help/[id]` | Pickups, a bed for the first week, rooms, items: offers and requests |
+| `/notifications` | In-app bell (and email when a key is set) |
+| `/p/[slug]/badge` | PNG badge a business can put on its site, with a QR to its profile |
+| `/discover?where=abroad` | "Back home": people you trust in another country |
+| `/admin/*` | Claims, removals, reports, licence checks, moderation |
 
 ### Decisions worth knowing
 
@@ -168,6 +192,29 @@ established, so a page rendered for a stranger never holds it.
 hides the profile immediately; confirming deletes every recommendation attached to it,
 and bulk import refuses to re-add a hidden number.
 
+**Arrival help is gated by a real student address.** Posting or responding on `/help`
+needs a verified `.edu` email: a 6-digit code, hashed with the user id, 15-minute life,
+5 attempts, one student address per account. Verifying drops you into your college's
+group. Contact details (email, optional phone) are revealed to exactly one person: the
+responder the poster accepts. Only the newcomer can mark help completed, which is what
+builds a helper's "helped N people" line. No money moves through the app, and a post
+that states a preference by race, colour, religion or national origin is rejected
+(`src/lib/fair-housing.ts`). That guard is a blunt safety net, not legal compliance.
+
+**Healthcare and legal are contact-only, and off by default.** Set
+`ENABLE_PROFESSIONAL_CATEGORIES=true` to show them. Notes are capped at 200 characters,
+the profile carries a "not medical or legal advice" card and a "Licence not checked yet"
+badge, and each new entry queues a row in `/admin/verifications`. Have a lawyer read
+`/legal/*` before turning it on.
+
+**Contacts can live abroad.** `normalizePhone(input, country)` parses a number in its own
+country's format, so "my aunt's home helper in Hyderabad" is a first-class recommendation
+and not a malformed US number.
+
+**The app installs.** `manifest.ts`, generated icons and a no-cache service worker make it
+installable. Sharing a contact or text *to* the app lands on `/import` pre-filled, and
+`/import` uses the Contact Picker where the browser has one.
+
 **Stripe and email are keys-optional.** Without keys the app runs and email is written to
 the server log. Set `RESEND_API_KEY` and `EMAIL_FROM` to deliver for real.
 
@@ -203,6 +250,13 @@ search, the share card, the duplicate-number notice, and Discover's degree group
   the effective limit multiplies and a restart clears them. Move to Redis before scaling
   out. `src/lib/rate-limit.ts` says so at the top.
 - **Import files under one paste.** No file upload yet — you paste the vCard text.
+- **`.edu` codes need an email key on a deployed site.** Without `RESEND_API_KEY` the code
+  is written to the server log (and shown on screen in development only).
+- **Fake colleges.** Anyone can add a college, but verifying against it needs a real
+  address on that domain, so the blast radius is small — not zero.
+- **A failed form submit clears the form** (React 19 resets uncontrolled forms after an
+  action). Server-side errors still show, but the user retypes.
+- **Not built, on purpose:** job referrals and community discounts.
 - **No email verification** on signup.
 - **Second-degree only.** The graph stops at friends-of-friends; there is no third degree.
 - **Policies are drafts.** `/legal/*` describes what the app does but has not been near

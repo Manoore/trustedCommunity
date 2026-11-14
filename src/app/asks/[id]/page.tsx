@@ -8,7 +8,7 @@ import { Avatar, Badge, Button, Card, PageHeader } from "@/components/ui";
 import { AnswerAskForm } from "@/components/answer-ask-form";
 import { ShareBar } from "@/components/share-bar";
 import { getOrigin } from "@/lib/site";
-import { closeAskAction } from "@/app/actions/asks";
+import { closeAskAction, markHiredAction } from "@/app/actions/asks";
 import { requireUser } from "@/lib/guards";
 import { getAsk } from "@/lib/asks";
 import { avatarColor, initials } from "@/lib/category-colors";
@@ -147,6 +147,21 @@ export default async function AskPage({ params }: Props) {
                     </a>
                   )}
                 </div>
+
+                {r.hiredAt ? (
+                  <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-gold-100 px-3 py-1 text-xs font-semibold text-gold-700">
+                    <span aria-hidden="true">🎉</span> Hired from this answer
+                  </p>
+                ) : (
+                  isAuthor && (
+                    <form action={markHiredAction} className="mt-3">
+                      <input type="hidden" name="responseId" value={r.id} />
+                      <Button type="submit" variant="secondary" size="sm">
+                        I hired them
+                      </Button>
+                    </form>
+                  )
+                )}
               </Card>
             ))}
           </div>

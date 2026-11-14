@@ -36,6 +36,10 @@ export const RATE_LIMITS = {
   connection: { limit: 30, windowMs: 60 * 60_000 },
   ask: { limit: 10, windowMs: 60 * 60_000 },
   import: { limit: 5, windowMs: 60 * 60_000 },
+  help: { limit: 25, windowMs: 60 * 60_000 },
+  edu: { limit: 5, windowMs: 60 * 60_000 },
+  eduConfirm: { limit: 15, windowMs: 60 * 60_000 },
+  college: { limit: 5, windowMs: 60 * 60_000 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

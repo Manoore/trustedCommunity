@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { professionalEnabled } from "@/lib/professional";
 import {
   categories,
   listingMedia,
@@ -19,6 +20,7 @@ export type CategoryNode = {
   description: string | null;
   licenseRequired: boolean;
   restricted: boolean;
+  professional: boolean;
   listingCount: number;
   children: CategoryNode[];
 };
@@ -31,7 +33,7 @@ export type CategoryNode = {
 export async function getCategoryTree(): Promise<CategoryNode[]> {
   const rows = (await db.execute(sql`
     SELECT
-      c.id, c.slug, c.name, c.description, c.license_required, c.restricted,
+      c.id, c.slug, c.name, c.description, c.license_required, c.restricted, c.professional,
       c.parent_id, c.sort_order,
       (
         SELECT count(*)::int FROM listings l
@@ -44,6 +46,9 @@ export async function getCategoryTree(): Promise<CategoryNode[]> {
 
   const byId = new Map<string, CategoryNode & { parentId: string | null }>();
   for (const r of rows) {
+    // Healthcare and legal do not exist anywhere in the product until switched on.
+    if (Boolean(r.professional) && !professionalEnabled()) continue;
+
     byId.set(String(r.id), {
       id: String(r.id),
       slug: String(r.slug),
@@ -51,6 +56,7 @@ export async function getCategoryTree(): Promise<CategoryNode[]> {
       description: (r.description as string) ?? null,
       licenseRequired: Boolean(r.license_required),
       restricted: Boolean(r.restricted),
+      professional: Boolean(r.professional),
       listingCount: Number(r.listing_count ?? 0),
       children: [],
       parentId: (r.parent_id as string) ?? null,
@@ -90,7 +96,9 @@ export async function getCategoryOptions() {
         .map((c) => ({
           id: c.id,
           name: c.name,
+          slug: c.slug,
           licenseRequired: c.licenseRequired,
+          professional: c.professional,
         })),
     }));
 }

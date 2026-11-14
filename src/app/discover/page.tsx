@@ -10,7 +10,7 @@ import { pluralize } from "@/lib/format";
 export const metadata: Metadata = { title: "Discover" };
 
 type Props = {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; where?: string }>;
 };
 
 const DEGREE_TONE: Record<number, "brand" | "coral" | "gold"> = {
@@ -20,11 +20,12 @@ const DEGREE_TONE: Record<number, "brand" | "coral" | "gold"> = {
 };
 
 export default async function DiscoverPage({ searchParams }: Props) {
-  const { q, category } = await searchParams;
+  const { q, category, where } = await searchParams;
   const user = await requireUser("/discover");
+  const scope = where === "abroad" ? "abroad" : undefined;
 
   const [results, connectionIds, groupIds] = await Promise.all([
-    discover(user.id, { q, categorySlug: category }),
+    discover(user.id, { q, categorySlug: category, scope }),
     getConnectionIds(user.id),
     getGroupIds(user.id),
   ]);
@@ -64,6 +65,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
             className="h-11 min-w-0 flex-1 rounded-full border border-line-strong bg-surface px-5 text-sm text-ink placeholder:text-ink-muted"
           />
           {category && <input type="hidden" name="category" value={category} />}
+          {scope && <input type="hidden" name="where" value="abroad" />}
           <button
             type="submit"
             className="h-11 rounded-full bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700"
@@ -71,6 +73,26 @@ export default async function DiscoverPage({ searchParams }: Props) {
             Search
           </button>
         </form>
+        <div className="mt-3 flex gap-2">
+          <Link
+            href={q ? `/discover?q=${encodeURIComponent(q)}` : "/discover"}
+            className={[
+              "rounded-full border px-4 py-1.5 text-sm font-medium",
+              !scope ? "border-transparent bg-ink text-surface" : "border-line-strong text-ink-muted hover:bg-surface-sunken",
+            ].join(" ")}
+          >
+            Everyone
+          </Link>
+          <Link
+            href={q ? `/discover?where=abroad&q=${encodeURIComponent(q)}` : "/discover?where=abroad"}
+            className={[
+              "rounded-full border px-4 py-1.5 text-sm font-medium",
+              scope ? "border-transparent bg-coral-500 text-white" : "border-coral-200 bg-coral-50 text-coral-700 hover:bg-coral-100",
+            ].join(" ")}
+          >
+            <span aria-hidden="true">🌍</span> Back home
+          </Link>
+        </div>
       </Card>
 
       {!hasNetwork ? (

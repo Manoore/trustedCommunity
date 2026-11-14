@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { askResponses, askTargets, asks, recommendations, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { askAnsweredEmail, askBroadcastEmail, sendEmail } from "@/lib/email";
+import { notify, notifyMany } from "@/lib/notifications";
 import { getAsk, getAskRecipients, getIncomingAsks } from "@/lib/asks";
 import { lookupZip } from "@/lib/geo";
 import { rateLimit, rateLimitMessage } from "@/lib/rate-limit";
@@ -92,6 +93,15 @@ export async function createAskAction(
       sendEmail(askBroadcastEmail(r.email, user.name, parsed.data.title, ask.id)),
     ),
   );
+  await notifyMany(
+    recipients.map((r) => r.id),
+    {
+      kind: "ask",
+      title: `${user.name} is asking: ${parsed.data.title}`,
+      body: "If you know someone good, you can pass on their details.",
+      href: `/asks/${ask.id}`,
+    },
+  );
 
   revalidatePath("/asks");
   redirect(`/asks/${ask.id}`);
@@ -162,10 +172,66 @@ export async function answerAskAction(
         askAnsweredEmail(author.email, user.name, contactName, askId),
       );
     }
+    await notify(ask.ask.userId, {
+      kind: "ask_answer",
+      title: `${user.name} suggested ${contactName}`,
+      body: `An answer to: ${ask.ask.title}`,
+      href: `/asks/${askId}`,
+    });
   }
 
   revalidatePath(`/asks/${askId}`);
   return { ok: true, message: "Answer sent." };
+}
+
+/**
+ * Closing the loop: the asker says which answer they actually hired.
+ *
+ * This is the only signal in the product that something worked out, so it is
+ * the asker's call alone, and the person whose recommendation was used is told
+ * - a thank-you that costs nothing and makes people keep answering.
+ */
+export async function markHiredAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  const responseId = String(formData.get("responseId") ?? "");
+
+  const [row] = await db
+    .select({
+      responseId: askResponses.id,
+      responderId: askResponses.responderUserId,
+      providerId: askResponses.providerId,
+      askId: askResponses.askId,
+      askOwnerId: asks.userId,
+      askTitle: asks.title,
+    })
+    .from(askResponses)
+    .innerJoin(asks, eq(asks.id, askResponses.askId))
+    .where(eq(askResponses.id, responseId))
+    .limit(1);
+
+  // Only the person who asked can say who they hired.
+  if (!row || row.askOwnerId !== user.id) return;
+
+  await db
+    .update(askResponses)
+    .set({ hiredAt: new Date() })
+    .where(eq(askResponses.id, row.responseId));
+
+  await notify(
+    row.responderId,
+    {
+      kind: "ask_hired",
+      title: `${user.name} hired your recommendation`,
+      body: `Your answer to “${row.askTitle}” worked out. Thank you for passing the name on.`,
+      href: `/asks/${row.askId}`,
+    },
+    { email: true },
+  );
+
+  revalidatePath(`/asks/${row.askId}`);
+  revalidatePath("/list");
 }
 
 export async function closeAskAction(formData: FormData) {

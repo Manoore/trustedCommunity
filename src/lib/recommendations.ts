@@ -29,6 +29,7 @@ export type MyRecommendation = {
   phone: string | null;
   city: string | null;
   state: string | null;
+  country: string;
   websiteUrl: string | null;
   categoryId: string | null;
   categoryName: string | null;
@@ -53,6 +54,7 @@ const baseSelect = {
   phone: providers.contactPhone,
   city: providers.city,
   state: providers.state,
+  country: providers.country,
   websiteUrl: providers.websiteUrl,
   categoryId: categories.id,
   categoryName: categories.name,
@@ -77,11 +79,16 @@ export async function getMyRecommendations(
   userId: string,
   categorySlug?: string,
   query?: string,
+  scope?: "abroad" | "us",
 ): Promise<MyRecommendation[]> {
   const conditions = [
     eq(recommendations.recommenderUserId, userId),
     isNull(providers.hiddenAt),
   ];
+
+  // "Back home": contacts somewhere other than the US.
+  if (scope === "abroad") conditions.push(sql`${providers.country} <> 'US'`);
+  if (scope === "us") conditions.push(sql`${providers.country} = 'US'`);
 
   if (categorySlug) {
     conditions.push(
@@ -149,6 +156,8 @@ const contactPublicColumns = {
   state: providers.state,
   claimedAt: providers.claimedAt,
   selfListedAt: providers.selfListedAt,
+  country: providers.country,
+  verifiedAt: providers.verifiedAt,
   hasPhone: sql<boolean>`(${providers.contactPhone} IS NOT NULL)`,
   phoneTail: sql<string | null>`right(${providers.normalizedPhone}, 4)`,
 };
@@ -181,6 +190,7 @@ export async function getContactProfile(slug: string, viewerId: string | null = 
       recommenderName: users.name,
       categoryName: categories.name,
       categorySlug: categories.slug,
+      professional: categories.professional,
     })
     .from(recommendations)
     .innerJoin(users, eq(users.id, recommendations.recommenderUserId))
@@ -194,6 +204,37 @@ export async function getContactProfile(slug: string, viewerId: string | null = 
     .orderBy(desc(recommendations.createdAt));
 
   return { provider, vouches };
+}
+
+/**
+ * Recommendations the author explicitly made public ("anyone with the link").
+ *
+ * This is the only number the embeddable badge may show. The badge is a public
+ * image anyone can embed, so counting connections-only or group-only vouches
+ * would leak that they exist; counting only the public ones cannot.
+ */
+export async function getPublicVouchCount(providerId: string) {
+  const [row] = await db
+    .select({ n: sql<number>`count(DISTINCT ${recommendations.recommenderUserId})::int` })
+    .from(recommendations)
+    .where(and(eq(recommendations.providerId, providerId), eq(recommendations.visibility, "link")));
+  return Number(row?.n ?? 0);
+}
+
+/** How many of the caller's contacts are outside the US, for the "Back home" chip. */
+export async function countAbroad(userId: string) {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(recommendations)
+    .innerJoin(providers, eq(providers.id, recommendations.providerId))
+    .where(
+      and(
+        eq(recommendations.recommenderUserId, userId),
+        isNull(providers.hiddenAt),
+        sql`${providers.country} <> 'US'`,
+      ),
+    );
+  return Number(row?.n ?? 0);
 }
 
 /** Category counts for the caller's own list, used for the filter chips. */

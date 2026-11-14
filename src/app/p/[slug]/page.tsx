@@ -5,8 +5,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { recommendations } from "@/db/schema";
 import { Alert, Avatar, Badge, Button, Card, LinkButton } from "@/components/ui";
+import QRCode from "qrcode";
 import { ShareBar } from "@/components/share-bar";
 import { quickVouchAction } from "@/app/actions/recommendations";
+import { countryName } from "@/lib/countries";
+import { IMMIGRATION_WARNING, PROFESSIONAL_DISCLAIMER } from "@/lib/professional";
 import { getOrigin } from "@/lib/site";
 import { avatarColor, initials } from "@/lib/category-colors";
 import { getCurrentUser } from "@/lib/auth";
@@ -88,8 +91,27 @@ export default async function ContactProfilePage({ params, searchParams }: Props
 
   // Fetched only once we know the viewer may see it.
   const contact = showPhone ? await getProviderContact(provider.id) : null;
-  const location = [provider.city, provider.state].filter(Boolean).join(", ");
-  const profileUrl = `${await getOrigin()}/p/${provider.slug}`;
+  const location = [
+    provider.city,
+    provider.state,
+    provider.country !== "US" ? countryName(provider.country) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const origin = await getOrigin();
+  const profileUrl = `${origin}/p/${provider.slug}`;
+
+  // Doctors and lawyers carry extra context wherever they appear.
+  const professional = vouches.some((v) => v.professional);
+  const immigration = vouches.some((v) => v.categorySlug === "immigration-attorney");
+
+  // The business's own promotion kit: only for whoever listed it themselves.
+  const showPromote = Boolean(provider.selfListedAt) && isOwner && provider.kind === "business";
+  const badgeUrl = `${origin}/p/${provider.slug}/badge`;
+  const embedCode = `<a href="${profileUrl}"><img src="${badgeUrl}" alt="Recommended on Trusted By" width="360" height="84"></a>`;
+  const qr = showPromote
+    ? await QRCode.toDataURL(profileUrl, { margin: 1, width: 220, color: { dark: "#12866f", light: "#ffffff" } })
+    : null;
 
   const selfListedNoVouches = Boolean(provider.selfListedAt) && vouches.length === 0;
 
@@ -165,6 +187,68 @@ export default async function ContactProfilePage({ params, searchParams }: Props
       </section>
 
       {vouchNotice && <Alert tone={vouchNotice.tone}>{vouchNotice.text}</Alert>}
+
+      {professional && (
+        <Card className="border-amber-300 bg-amber-50/60">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold text-ink">Before you contact them</h2>
+            {provider.verifiedAt ? (
+              <Badge tone="success">✓ Licence checked</Badge>
+            ) : (
+              <Badge tone="warning">Licence not checked yet</Badge>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-ink-muted">{PROFESSIONAL_DISCLAIMER}</p>
+          {immigration && (
+            <p className="mt-2 text-sm font-medium text-amber-800">{IMMIGRATION_WARNING}</p>
+          )}
+          {provider.websiteUrl && (
+            <p className="mt-3 text-sm">
+              Book or enquire through{" "}
+              <a
+                href={provider.websiteUrl}
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                className="font-medium text-brand-700 underline"
+              >
+                their own website
+              </a>
+              . We do not take bookings or hold any personal details.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {showPromote && qr && (
+        <Card className="warm-wash space-y-4">
+          <div>
+            <h2 className="font-semibold text-ink">Promote your page</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Put this on your website or in your shop window. It only ever shows
+              recommendations people made public, and it is free — selling it would
+              make the trust it signals worth less.
+            </p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-[auto_1fr]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr} alt={`QR code for ${provider.displayName}'s page`} width={160} height={160} className="rounded-xl border border-line bg-white p-1" />
+            <div className="space-y-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={badgeUrl} alt="Recommended on Trusted By badge" width={360} height={84} className="max-w-full" />
+              <label className="block text-xs font-medium text-ink-muted" htmlFor="embed">
+                Embed code
+              </label>
+              <textarea
+                id="embed"
+                readOnly
+                rows={3}
+                value={embedCode}
+                className="w-full rounded-lg border border-line-strong bg-surface p-3 font-mono text-xs text-ink"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
       {selfListedNoVouches && (
         <Alert tone="info">

@@ -20,7 +20,9 @@ type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 export type CategoryOption = {
   id: string;
   name: string;
+  slug?: string;
   licenseRequired: boolean;
+  professional?: boolean;
 };
 
 export type CategoryGroup = { label: string; options: CategoryOption[] };

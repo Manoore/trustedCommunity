@@ -60,6 +60,8 @@ export default async function EditRecommendationPage({ params }: Props) {
           kind: provider.kind,
           categoryId: recommendation.categoryId,
           zip: provider.zip,
+          country: provider.country,
+          city: provider.country !== "US" ? provider.city : null,
           websiteUrl: provider.websiteUrl,
           relationship: recommendation.relationship,
           strength: recommendation.strength,

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { reports, users } from "@/db/schema";
 import { Badge, Button, Card, EmptyState, Input, PageHeader } from "@/components/ui";
 import { resolveReportAction } from "@/app/actions/reports";
+import { setHelpPostStatusAction } from "@/app/actions/help";
 import { setReviewStatusAction } from "@/app/actions/reviews";
 import { setListingModerationAction, setProviderStatusAction } from "@/app/actions/admin";
 import { formatDate } from "@/lib/format";
@@ -29,6 +30,9 @@ async function loadReports() {
     UNION ALL
     SELECT r.id, left(r.body, 60) AS label, NULL AS slug, 'review' AS kind, r.provider_id
     FROM reviews r
+    UNION ALL
+    SELECT hp.id, hp.title AS label, NULL AS slug, 'help_post' AS kind, NULL::uuid AS provider_id
+    FROM help_posts hp
   `)) as unknown as Array<Record<string, string>>;
 
   const byId = new Map(targets.map((t) => [t.id, t]));
@@ -74,6 +78,10 @@ export default async function AdminReportsPage() {
                       >
                         {target.label}
                       </Link>
+                    ) : report.targetType === "help_post" && target ? (
+                      <Link href={`/help/${report.targetId}`} className="hover:underline">
+                        {target.label}
+                      </Link>
                     ) : (
                       (target?.label ?? "Target no longer exists")
                     )}
@@ -111,6 +119,16 @@ export default async function AdminReportsPage() {
                     <Input name="reason" placeholder="Reason" className="w-64" />
                     <Button type="submit" variant="danger" size="sm">
                       Suspend provider
+                    </Button>
+                  </form>
+                )}
+
+                {report.targetType === "help_post" && target && (
+                  <form action={setHelpPostStatusAction}>
+                    <input type="hidden" name="postId" value={report.targetId} />
+                    <input type="hidden" name="status" value="suspended" />
+                    <Button type="submit" variant="danger" size="sm">
+                      Take down post
                     </Button>
                   </form>
                 )}

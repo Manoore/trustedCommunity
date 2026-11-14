@@ -11,11 +11,18 @@ import {
   recommendationGroups,
   recommendations,
   shareLinks,
+  verifications,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { countryName, isKnownCountry } from "@/lib/countries";
 import { getGroupIds } from "@/lib/social";
 import { lookupZip } from "@/lib/geo";
 import { normalizePhone } from "@/lib/phone";
+import {
+  PROFESSIONAL_NOTE_LIMIT,
+  PROFESSIONAL_NOTE_WARNING,
+  isCategoryBlocked,
+} from "@/lib/professional";
 import { rateLimit, rateLimitMessage } from "@/lib/rate-limit";
 import { uniqueSlug } from "@/lib/slug";
 import {
@@ -31,6 +38,8 @@ function readForm(formData: FormData) {
     kind: formData.get("kind"),
     categoryId: formData.get("categoryId"),
     zip: formData.get("zip") ?? "",
+    country: formData.get("country") ?? "",
+    city: formData.get("city") ?? "",
     websiteUrl: formData.get("websiteUrl") ?? "",
     relationship: formData.get("relationship"),
     strength: formData.get("strength"),
@@ -61,12 +70,22 @@ export async function saveRecommendationAction(
   const parsed = recommendationSchema.safeParse(readForm(formData));
   if (!parsed.success) return zodToState(parsed.error);
 
-  const phone = normalizePhone(parsed.data.phone);
+  // A contact is not assumed to be American: a doctor for parents in Hyderabad
+  // is as valid as a plumber in Dayton. Unknown codes fall back to the US.
+  const countryInput = (parsed.data.country || "US").toUpperCase();
+  const country = isKnownCountry(countryInput) ? countryInput : "US";
+  const abroad = country !== "US";
+
+  const phone = normalizePhone(parsed.data.phone, country);
   if (!phone) {
     return {
       ok: false,
       fieldErrors: {
-        phone: ["That does not look like a valid US phone number."],
+        phone: [
+          abroad
+            ? `That does not look like a valid ${countryName(country)} number. You can also start it with + and the country code.`
+            : "That does not look like a valid US phone number. For a number from another country, choose it above or start with +.",
+        ],
       },
     };
   }
@@ -78,17 +97,32 @@ export async function saveRecommendationAction(
     .limit(1);
 
   if (!category) return { ok: false, fieldErrors: { categoryId: ["Pick a category."] } };
-  if (category.restricted) {
+  if (isCategoryBlocked(category)) {
     return {
       ok: false,
       message: `${category.name} is not accepted here — see the content policy.`,
     };
   }
 
-  const geo = parsed.data.zip ? lookupZip(parsed.data.zip) : null;
-  if (parsed.data.zip && !geo) {
+  // Healthcare and legal: short notes, no stories. It is the recommender's own
+  // health or legal information otherwise, and it would be shown to a group.
+  if (category.professional && (parsed.data.note?.length ?? 0) > PROFESSIONAL_NOTE_LIMIT) {
+    return {
+      ok: false,
+      fieldErrors: {
+        note: [
+          `Keep it under ${PROFESSIONAL_NOTE_LIMIT} characters for a doctor or lawyer. ${PROFESSIONAL_NOTE_WARNING}`,
+        ],
+      },
+    };
+  }
+
+  // In the US we locate by ZIP; elsewhere there is no ZIP, so a city is enough.
+  const geo = !abroad && parsed.data.zip ? lookupZip(parsed.data.zip) : null;
+  if (!abroad && parsed.data.zip && !geo) {
     return { ok: false, fieldErrors: { zip: ["We do not recognise that ZIP code."] } };
   }
+  const abroadCity = abroad ? parsed.data.city?.trim() || null : null;
 
   // Dedupe on the phone number.
   const existing = await db
@@ -134,8 +168,9 @@ export async function saveRecommendationAction(
         displayName: parsed.data.name,
         contactPhone: phone.display,
         normalizedPhone: phone.e164,
+        country,
         websiteUrl: parsed.data.websiteUrl || null,
-        city: geo?.city ?? null,
+        city: geo?.city ?? abroadCity,
         state: geo?.state ?? null,
         zip: geo?.zip ?? null,
         lat: geo?.lat ?? null,
@@ -145,6 +180,24 @@ export async function saveRecommendationAction(
       })
       .returning({ id: providers.id });
     providerId = created.id;
+  }
+
+  // A doctor or lawyer gets a licence check queued for an admin, once. The
+  // recommender cannot supply the licence number - it is not theirs - so the
+  // admin looks it up (NPI registry for clinicians, the state bar for lawyers).
+  if (category.professional && category.licenseRequired) {
+    const [queued] = await db
+      .select({ id: verifications.id })
+      .from(verifications)
+      .where(and(eq(verifications.providerId, providerId), eq(verifications.kind, "license")))
+      .limit(1);
+    if (!queued) {
+      await db.insert(verifications).values({
+        providerId,
+        kind: "license",
+        notes: `Added through a recommendation in ${category.name}. Look up the licence (the NPI registry for clinicians, the state bar for attorneys) and approve or reject.`,
+      });
+    }
   }
 
   const [saved] = await db

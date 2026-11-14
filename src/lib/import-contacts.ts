@@ -100,11 +100,59 @@ function splitCsvLine(line: string): string[] {
   return out;
 }
 
+/** A number written the way people write them: +1 937-555-0148, (937) 555 0148, 98480 12345. */
+const PHONE_IN_TEXT = /(\+?\d[\d\s().-]{6,}\d)/;
+
+/**
+ * WhatsApp and message threads do not share a clean "Name, number" row. They
+ * share "Mike's Plumbing\n+1 937-555-0148", or a sentence with a number in it.
+ * This reshapes those into the row the rest of the parser understands, and
+ * leaves anything that already looks like a row alone.
+ */
+function normaliseLines(text: string): string[] {
+  const out: string[] = [];
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    const phoneOnly = /^\+?[\d\s().-]{7,}$/.test(line);
+    const prev = out[out.length - 1];
+
+    // "Name" on one line, "number" on the next.
+    if (phoneOnly && prev && !PHONE_IN_TEXT.test(prev)) {
+      out[out.length - 1] = `${prev}, ${line}`;
+      continue;
+    }
+
+    // "Mike's Plumbing 937-555-0148" or "call Mike on 937 555 0148": split at the number.
+    if (!line.includes(",") && !line.includes("\t")) {
+      const match = PHONE_IN_TEXT.exec(line);
+      if (match) {
+        const name = line
+          .replace(match[0], " ")
+          .replace(/\b(call|phone|number|tel|contact|is|on|at|-|:)\b/gi, " ")
+          .replace(/[^\p{L}\p{N}'&.\s]/gu, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (name) {
+          out.push(`${name}, ${match[0].trim()}`);
+          continue;
+        }
+      }
+    }
+
+    out.push(line);
+  }
+
+  return out;
+}
+
 function parseDelimited(text: string): ParseResult {
   const contacts: ParsedContact[] = [];
   const skipped: string[] = [];
 
-  for (const line of text.split(/\r?\n/)) {
+  for (const line of normaliseLines(text)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 

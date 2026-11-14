@@ -201,6 +201,46 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ----------------------------------------------------- arriving somewhere new */}
+      <section className="warm-wash rounded-3xl border border-line bg-surface p-8 sm:p-12">
+        <div className="grid items-center gap-8 md:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-coral-100 px-4 py-1.5 text-sm font-medium text-coral-700">
+              <span aria-hidden="true">✈️</span> New: for students arriving in a new country
+            </span>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
+              Land with people who already know the way.
+            </h2>
+            <p className="mt-3 max-w-lg text-ink-muted">
+              An airport pickup, a bed for the first week, a room from someone graduating —
+              each from a verified senior at your own college, with a record of who they have
+              helped. No money through us, so nothing to be scammed out of.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <LinkButton href="/arrive" size="lg">
+                See how arrival help works
+              </LinkButton>
+            </div>
+          </div>
+          <ul className="space-y-3 text-sm">
+            {[
+              ["🚗", "Pickup from the airport"],
+              ["🛏️", "A first-week stay"],
+              ["🏠", "A room or sublet handover"],
+              ["🛒", "The grocery, SIM and bank the seniors use"],
+            ].map(([emoji, label]) => (
+              <li
+                key={label}
+                className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-card)]"
+              >
+                <span aria-hidden="true" className="text-xl">{emoji}</span>
+                <span className="font-medium text-ink">{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       {/* ------------------------------------------------- why not reviews */}
       <section className="warm-wash rounded-3xl border border-line bg-surface p-8 sm:p-12">
         <h2 className="text-2xl font-semibold tracking-tight text-ink">

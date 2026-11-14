@@ -86,6 +86,19 @@ const DOCS: Record<
         ],
       },
       {
+        heading: "Students and the help board",
+        body: [
+          "To use the help board you verify a college email address. We store that address and when you verified it, only to prove you belong to that college and to stop one student address backing several accounts. The code we email you is stored only as a hash and expires in 15 minutes.",
+          "Contact details on a help post (your account email, and a phone number if you add one) are shown only to the single person whose response you accept, and only after you accept.",
+        ],
+      },
+      {
+        heading: "Contacts in other countries",
+        body: [
+          "You can recommend someone in another country. Their phone number is stored in international format, and the same rules apply to them as to anyone listed here, including the right to ask for removal.",
+        ],
+      },
+      {
         heading: "Email and texts",
         body: [
           "We email you about connection requests, asks sent to your network, and answers to your own asks.",
@@ -117,8 +130,24 @@ const DOCS: Record<
         heading: "Not accepted",
         body: [
           "Adult services and personals. These sit inside the FOSTA/SESTA carve-out to Section 230, which would remove the protection that lets this site host user content at all.",
-          "Legal services, medical and dental services, and investment or financial advice — state bar and regulator rules on referral fees make recommendation-passing in these fields a licensing problem.",
-          "Immigration consulting, firearms and ammunition, cannabis and CBD.",
+          "Investment or financial advice — regulator rules on referrals make recommendation-passing in that field a licensing problem.",
+          "Immigration consulting by anyone who is not a licensed attorney or DOJ-accredited representative, firearms and ammunition, cannabis and CBD.",
+        ],
+      },
+      {
+        heading: "Doctors and lawyers",
+        body: [
+          "Where healthcare and legal contacts are enabled, they are contact details only. We link to the practitioner's own website or portal; we do not take bookings, hold client or patient information, or accept money for placement.",
+          "A recommendation of a doctor or lawyer is kept short and must not include health or legal details — yours or anyone else's.",
+          "Licences are checked by an administrator against the public registry or state bar, and the profile says whether that has happened. This is not medical or legal advice, and it is not for emergencies.",
+        ],
+      },
+      {
+        heading: "Help from other students",
+        body: [
+          "The help board (airport pickups, a first-week stay, a room or sublet, belongings) is open only to students who have verified an address at their college.",
+          "No money changes hands through the site, and nobody may ask for a deposit or fee. Posts about a place to stay may not state a preference based on race, colour, religion or national origin.",
+          "Anything that feels unsafe can be reported from the post, and reported posts are reviewed.",
         ],
       },
       {

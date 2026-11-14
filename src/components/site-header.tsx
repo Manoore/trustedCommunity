@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { getUnreadCount } from "@/lib/notifications";
 import { logoutAction } from "@/app/actions/auth";
 import { Button, LinkButton } from "@/components/ui";
 
 const NAV = [
   { href: "/list", label: "My list" },
   { href: "/discover", label: "Discover" },
+  { href: "/arrive", label: "Arrive" },
   { href: "/asks", label: "Asks" },
   { href: "/people", label: "People" },
   { href: "/groups", label: "Groups" },
@@ -13,6 +15,7 @@ const NAV = [
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
+  const unread = user ? await getUnreadCount(user.id) : 0;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
@@ -58,6 +61,19 @@ export async function SiteHeader() {
                 </ul>
               </div>
 
+              <Link
+                href="/notifications"
+                aria-label={unread > 0 ? `Notifications, ${unread} new` : "Notifications"}
+                className="relative grid h-10 w-10 place-items-center rounded-full text-lg text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+              >
+                <span aria-hidden="true">🔔</span>
+                {unread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-coral-500 px-1 text-[11px] font-bold text-white">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
+              </Link>
+
               <LinkButton href="/recommendations/new" size="sm" variant="coral">
                 <span aria-hidden="true">＋</span> Add
               </LinkButton>
@@ -69,6 +85,9 @@ export async function SiteHeader() {
             </>
           ) : (
             <>
+              <LinkButton href="/arrive" variant="ghost" size="sm">
+                New to a country?
+              </LinkButton>
               <LinkButton href="/login" variant="ghost" size="sm">
                 Sign in
               </LinkButton>

@@ -3,17 +3,21 @@ import type { Metadata } from "next";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Alert, Button, Card, PageHeader } from "@/components/ui";
 import { joinGroupAction } from "@/app/actions/groups";
 import { getCurrentUser } from "@/lib/auth";
 import { pluralize } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Join a group" };
 
-type Props = { params: Promise<{ token: string }> };
+type Props = {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ full?: string }>;
+};
 
-export default async function JoinGroupPage({ params }: Props) {
+export default async function JoinGroupPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const { full } = await searchParams;
 
   const [group] = await db
     .select({
@@ -53,6 +57,12 @@ export default async function JoinGroupPage({ params }: Props) {
         title={`Join ${group.name}`}
         description="Someone shared this invite link with you."
       />
+
+      {full && (
+        <Alert tone="error">
+          This group has reached its member limit. Ask whoever invited you to make room.
+        </Alert>
+      )}
 
       <Card className="warm-wash">
         <p className="text-sm text-ink-muted">

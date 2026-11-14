@@ -27,6 +27,7 @@ export type DiscoverResult = {
   phone: string | null;
   city: string | null;
   state: string | null;
+  country: string;
   websiteUrl: string | null;
   categoryName: string | null;
   categorySlug: string | null;
@@ -57,7 +58,7 @@ function uuidList(ids: string[]) {
 
 export async function discover(
   viewerId: string,
-  opts: { q?: string; categorySlug?: string } = {},
+  opts: { q?: string; categorySlug?: string; scope?: "abroad" } = {},
 ): Promise<DiscoverResult[]> {
   const [connectionIds, groupIds, secondDegreeIds] = await Promise.all([
     getConnectionIds(viewerId),
@@ -112,6 +113,9 @@ export async function discover(
     filters.push(sql`(c.slug = ${opts.categorySlug} OR pc.slug = ${opts.categorySlug})`);
   }
 
+  // "Back home": who in my network trusts someone outside the US.
+  if (opts.scope === "abroad") filters.push(sql`p.country <> 'US'`);
+
   if (opts.q?.trim()) {
     const like = `%${opts.q.trim()}%`;
     filters.push(sql`(
@@ -126,7 +130,7 @@ export async function discover(
     SELECT
       r.id, r.note, r.relationship, r.strength,
       p.display_name AS name, p.slug AS provider_slug, p.kind,
-      p.contact_phone AS phone, p.city, p.state, p.website_url,
+      p.contact_phone AS phone, p.city, p.state, p.country, p.website_url,
       c.name AS category_name, c.slug AS category_slug,
       pc.name AS group_name, pc.slug AS group_slug,
       u.name AS recommender_name,
@@ -157,6 +161,7 @@ export async function discover(
       phone: (row.phone as string) ?? null,
       city: (row.city as string) ?? null,
       state: (row.state as string) ?? null,
+      country: String(row.country ?? "US"),
       websiteUrl: (row.website_url as string) ?? null,
       categoryName: (row.category_name as string) ?? null,
       categorySlug: (row.category_slug as string) ?? null,
@@ -171,6 +176,33 @@ export async function discover(
       otherRecommenders: Math.max(Number(row.other_recommenders ?? 1) - 1, 0),
     };
   });
+}
+
+export type GroupPin = {
+  providerId: string;
+  slug: string;
+  name: string;
+  kind: "business" | "individual";
+  note: string | null;
+};
+
+/** The owner-curated starter list, shown first so a newcomer starts somewhere good. */
+export async function getGroupPins(groupId: string): Promise<GroupPin[]> {
+  const rows = (await db.execute(sql`
+    SELECT p.id AS provider_id, p.slug, p.display_name AS name, p.kind, gp.note
+    FROM group_pins gp
+    JOIN providers p ON p.id = gp.provider_id AND p.hidden_at IS NULL
+    WHERE gp.group_id = ${groupId}::uuid
+    ORDER BY gp.created_at ASC
+  `)) as unknown as Array<Record<string, unknown>>;
+
+  return rows.map((r) => ({
+    providerId: String(r.provider_id),
+    slug: String(r.slug),
+    name: String(r.name),
+    kind: r.kind as "business" | "individual",
+    note: (r.note as string) ?? null,
+  }));
 }
 
 export type GroupTopContact = {
@@ -205,7 +237,13 @@ export type GroupTopContact = {
 export async function getGroupTopContacts(
   groupId: string,
   viewerId: string,
+  opts: { categorySlug?: string; limit?: number } = {},
 ): Promise<GroupTopContact[]> {
+  const categoryFilter = opts.categorySlug
+    ? sql`AND (c.slug = ${opts.categorySlug} OR pc.slug = ${opts.categorySlug})`
+    : sql``;
+  const limit = Math.min(Math.max(opts.limit ?? 25, 1), 50);
+
   const rows = (await db.execute(sql`
     SELECT
       p.id AS provider_id, p.slug, p.display_name AS name, p.kind, p.city, p.state,
@@ -230,9 +268,10 @@ export async function getGroupTopContacts(
     LEFT JOIN categories c ON c.id = r.category_id
     LEFT JOIN categories pc ON pc.id = c.parent_id
     WHERE rg.group_id = ${groupId}::uuid
+      ${categoryFilter}
     GROUP BY p.id
     ORDER BY members DESC, used_personally DESC, max(r.created_at) DESC
-    LIMIT 25
+    LIMIT ${limit}
   `)) as unknown as Array<Record<string, unknown>>;
 
   return rows.map((row) => ({
@@ -258,7 +297,7 @@ export async function getGroupRecommendations(groupId: string, viewerId: string)
     SELECT
       r.id, r.note, r.relationship, r.strength, r.visibility,
       p.display_name AS name, p.slug AS provider_slug, p.kind,
-      p.contact_phone AS phone, p.city, p.state, p.website_url,
+      p.contact_phone AS phone, p.city, p.state, p.country, p.website_url,
       c.name AS category_name, c.slug AS category_slug,
       pc.name AS group_name, pc.slug AS group_slug,
       u.name AS recommender_name,
@@ -289,6 +328,7 @@ export async function getGroupRecommendations(groupId: string, viewerId: string)
     phone: (row.phone as string) ?? null,
     city: (row.city as string) ?? null,
     state: (row.state as string) ?? null,
+    country: String(row.country ?? "US"),
     websiteUrl: (row.website_url as string) ?? null,
     categoryName: (row.category_name as string) ?? null,
     categorySlug: (row.category_slug as string) ?? null,

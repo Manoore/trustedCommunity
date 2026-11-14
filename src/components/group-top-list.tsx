@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar, Button } from "@/components/ui";
+import { pinContactAction } from "@/app/actions/groups";
 import { quickVouchAction } from "@/app/actions/recommendations";
 import {
   avatarColor,
@@ -18,10 +19,14 @@ export function GroupTopList({
   items,
   groupId,
   returnTo,
+  canManage = false,
+  pinnedIds = [],
 }: {
   items: GroupTopContact[];
   groupId: string;
   returnTo: string;
+  canManage?: boolean;
+  pinnedIds?: string[];
 }) {
   const max = Math.max(...items.map((i) => i.members), 1);
 
@@ -100,7 +105,19 @@ export function GroupTopList({
                 )}
               </div>
 
-              <div className="shrink-0">
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                {canManage && !pinnedIds.includes(item.providerId) && (
+                  <form action={pinContactAction}>
+                    <input type="hidden" name="groupId" value={groupId} />
+                    <input type="hidden" name="providerId" value={item.providerId} />
+                    <button
+                      type="submit"
+                      className="rounded-full border border-line-strong px-3 py-1 text-xs font-medium text-ink-muted hover:bg-surface-sunken"
+                    >
+                      📌 Pin to start list
+                    </button>
+                  </form>
+                )}
                 {item.mine ? (
                   <span className="inline-flex h-9 items-center rounded-full bg-brand-50 px-4 text-sm font-medium text-brand-700">
                     ✓ You recommend

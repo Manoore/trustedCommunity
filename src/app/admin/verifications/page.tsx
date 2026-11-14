@@ -39,6 +39,29 @@ export default async function VerificationsPage() {
         description="Listings in licensed trades stay out of search until the number here checks out against the state board."
       />
 
+      <Card>
+        <h2 className="text-sm font-semibold text-ink">Where to check a licence</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-muted">
+          <li>
+            Doctors, dentists and other clinicians:{" "}
+            <a
+              href="https://npiregistry.cms.hhs.gov/search"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-700 underline"
+            >
+              the NPI registry
+            </a>{" "}
+            (name or phone), then the state medical board for standing.
+          </li>
+          <li>Attorneys: the bar association of the state they practise in.</li>
+          <li>
+            Immigration help: only a licensed attorney or a DOJ-accredited representative
+            qualifies. Reject anyone else.
+          </li>
+        </ul>
+      </Card>
+
       {pending.length === 0 ? (
         <EmptyState title="Nothing awaiting review" />
       ) : (

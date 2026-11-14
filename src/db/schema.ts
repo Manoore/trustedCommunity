@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -64,6 +65,30 @@ export const reportTargetEnum = pgEnum("report_target", [
   "review",
   "provider",
   "message",
+  "help_post",
+]);
+
+/* ------------------------------------------------------ arrival-help enums */
+
+/** What kind of help: a ride from the airport, a first-week bed, a room, belongings. */
+export const helpKindEnum = pgEnum("help_kind", [
+  "pickup",
+  "temp_stay",
+  "room",
+  "item",
+]);
+
+/** An `offer` is a helper saying "I can"; a `need` is a newcomer saying "I need". */
+export const helpDirectionEnum = pgEnum("help_direction", ["offer", "need"]);
+
+export const helpStatusEnum = pgEnum("help_status", ["open", "closed", "suspended"]);
+
+export const helpResponseStatusEnum = pgEnum("help_response_status", [
+  "pending",
+  "accepted",
+  "declined",
+  "completed",
+  "cancelled",
 ]);
 export const reportStatusEnum = pgEnum("report_status", [
   "open",
@@ -145,6 +170,39 @@ export const claimStatusEnum = pgEnum("claim_status", [
 
 /* ------------------------------------------------------------------ users */
 
+/* --------------------------------------------------------------- colleges */
+
+/**
+ * A university, used to anchor arrival help. Groups are defined by college, not
+ * by nationality or religion: that keeps the community useful and keeps housing
+ * posts clear of anything resembling a protected-class preference.
+ */
+export const colleges = pgTable(
+  "colleges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    country: text("country").notNull().default("US"),
+    /** e.g. utdallas.edu - the proof a student belongs here is an address on it. */
+    domain: text("domain"),
+    /** Nearest major airport, shown on arrival posts. */
+    airport: text("airport"),
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
+    createdByUserId: uuid("created_by_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("colleges_slug_unique").on(t.slug),
+    unique("colleges_domain_unique").on(t.domain),
+  ],
+);
+
+/* ------------------------------------------------------------------ users */
+
 export const users = pgTable(
   "users",
   {
@@ -157,10 +215,20 @@ export const users = pgTable(
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     // TCPA: SMS may only be sent after an explicit, recorded opt-in.
     smsOptInAt: timestamp("sms_opt_in_at", { withTimezone: true }),
+    /** The college they say they attend. Claiming it unlocks nothing by itself. */
+    collegeId: uuid("college_id").references(() => colleges.id, {
+      onDelete: "set null",
+    }),
+    /** The address they proved they control. One student address, one account. */
+    eduEmail: text("edu_email"),
+    eduVerifiedAt: timestamp("edu_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("users_email_unique").on(t.email)],
+  (t) => [
+    unique("users_email_unique").on(t.email),
+    unique("users_edu_email_unique").on(t.eduEmail),
+  ],
 );
 
 export const sessions = pgTable(
@@ -203,6 +271,13 @@ export const providers = pgTable(
      * predate a phone number.
      */
     normalizedPhone: text("normalized_phone"),
+
+    /**
+     * ISO country the contact is in. Defaults to the US, but the diaspora also
+     * needs trusted people back home - a doctor for parents, someone to look
+     * after a property - so a contact is not assumed to be American.
+     */
+    country: text("country").notNull().default("US"),
 
     /** Who first added them. Null for self-registered providers. */
     createdByUserId: uuid("created_by_user_id").references(() => users.id, {
@@ -291,6 +366,13 @@ export const categories = pgTable(
     licenseRequired: boolean("license_required").notNull().default(false),
     /** Categories we refuse to host (regulated or FOSTA/SESTA exposure). */
     restricted: boolean("restricted").notNull().default(false),
+    /**
+     * Healthcare and legal. Contact-only and outbound-link-only, and switched
+     * off at runtime until ENABLE_PROFESSIONAL_CATEGORIES is set, because
+     * whether a free list of lawyers counts as a "referral service" is a
+     * question for counsel in each state.
+     */
+    professional: boolean("professional").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -591,6 +673,13 @@ export const groups = pgTable(
     city: text("city"),
     state: text("state"),
     joinPolicy: joinPolicyEnum("join_policy").notNull().default("invite"),
+    /** Set for a college's community group, so the two stay linked. */
+    collegeId: uuid("college_id").references(() => colleges.id, {
+      onDelete: "set null",
+    }),
+    welcomeMessage: text("welcome_message"),
+    /** Optional cap, so a small close-knit group can stay small. */
+    memberLimit: integer("member_limit"),
     inviteToken: text("invite_token"),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
@@ -732,12 +821,144 @@ export const askResponses = pgTable(
       onDelete: "cascade",
     }),
     note: text("note"),
+    /** Set when the asker says they actually hired this person. */
+    hiredAt: timestamp("hired_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     unique("ask_responses_unique").on(t.askId, t.responderUserId, t.providerId),
     index("ask_responses_ask_idx").on(t.askId),
   ],
+);
+
+/* --------------------------------------------------------- arrival help */
+
+/**
+ * One table for both directions of help. "I can pick someone up from DFW on
+ * Aug 18" (offer) and "I land at DFW on Aug 18 and need a pickup" (need) are the
+ * same shape, and a response to either works the same way.
+ *
+ * Deliberately no price, no deposit, no payment. Money moving through the app
+ * would turn a favour between students into a regulated service, and is how
+ * rental scams work.
+ */
+export const helpPosts = pgTable(
+  "help_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    collegeId: uuid("college_id")
+      .notNull()
+      .references(() => colleges.id, { onDelete: "cascade" }),
+    direction: helpDirectionEnum("direction").notNull(),
+    kind: helpKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    details: text("details"),
+    /** An airport, or a neighbourhood near campus. */
+    area: text("area"),
+    startsOn: date("starts_on"),
+    endsOn: date("ends_on"),
+    /** How many people an offer can take. A need is satisfied by one. */
+    capacity: integer("capacity").notNull().default(1),
+    /** Shared only with the person whose response is accepted. */
+    contactPhone: text("contact_phone"),
+    status: helpStatusEnum("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("help_posts_college_status_idx").on(t.collegeId, t.status),
+    index("help_posts_user_idx").on(t.userId),
+  ],
+);
+
+export const helpResponses = pgTable(
+  "help_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => helpPosts.id, { onDelete: "cascade" }),
+    responderUserId: uuid("responder_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    message: text("message"),
+    contactPhone: text("contact_phone"),
+    status: helpResponseStatusEnum("status").notNull().default("pending"),
+    /** Left by the newcomer once the help happened. This is the helper's reputation. */
+    endorsement: text("endorsement"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("help_responses_unique").on(t.postId, t.responderUserId),
+    index("help_responses_post_idx").on(t.postId),
+    index("help_responses_responder_idx").on(t.responderUserId),
+  ],
+);
+
+/* ---------------------------------------------------------- notifications */
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notifications_user_read_idx").on(t.userId, t.readAt)],
+);
+
+/* ------------------------------------------------- student email verification */
+
+/** A one-time code sent to a student address. Only its hash is stored. */
+export const emailVerifications = pgTable(
+  "email_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_verifications_user_idx").on(t.userId)],
+);
+
+/* ------------------------------------------------------------- group pins */
+
+/** A starter list: the contacts an owner pins so a newcomer sees them first. */
+export const groupPins = pgTable(
+  "group_pins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    note: text("note"),
+    pinnedByUserId: uuid("pinned_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("group_pins_unique").on(t.groupId, t.providerId)],
 );
 
 /* -------------------------------------------------------- claim requests */
@@ -912,6 +1133,10 @@ export const groupMembersRelations = relations(groupMembers, ({ one }) => ({
   user: one(users, { fields: [groupMembers.userId], references: [users.id] }),
 }));
 
+export type College = typeof colleges.$inferSelect;
+export type HelpPost = typeof helpPosts.$inferSelect;
+export type HelpResponse = typeof helpResponses.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 export type Ask = typeof asks.$inferSelect;
 export type AskResponse = typeof askResponses.$inferSelect;
 export type Recommendation = typeof recommendations.$inferSelect;

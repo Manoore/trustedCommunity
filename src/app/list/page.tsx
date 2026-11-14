@@ -5,6 +5,7 @@ import { RecommendationCard } from "@/components/recommendation-card";
 import { createShareLinkAction } from "@/app/actions/recommendations";
 import { categoryColor, categoryTint } from "@/lib/category-colors";
 import {
+  countAbroad,
   countShareable,
   getMyCategoryCounts,
   getMyRecommendations,
@@ -22,6 +23,7 @@ type Props = {
     q?: string;
     imported?: string;
     skipped?: string;
+    where?: string;
   }>;
 };
 
@@ -33,13 +35,15 @@ function greeting() {
 }
 
 export default async function MyListPage({ searchParams }: Props) {
-  const { category, saved, matched, q, imported, skipped } = await searchParams;
+  const { category, saved, matched, q, imported, skipped, where } = await searchParams;
   const user = await requireUser("/list");
+  const scope = where === "abroad" ? "abroad" : undefined;
 
-  const [items, counts, shareable] = await Promise.all([
-    getMyRecommendations(user.id, category, q),
+  const [items, counts, shareable, abroadCount] = await Promise.all([
+    getMyRecommendations(user.id, category, q, scope),
     getMyCategoryCounts(user.id),
     countShareable(user.id),
+    countAbroad(user.id),
   ]);
 
   const total = counts.reduce((sum, c) => sum + c.total, 0);
@@ -162,13 +166,26 @@ export default async function MyListPage({ searchParams }: Props) {
             href="/list"
             className={[
               "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-              !category
+              !category && !scope
                 ? "border-transparent bg-ink text-surface"
                 : "border-line-strong text-ink-muted hover:bg-surface-sunken",
             ].join(" ")}
           >
             Everything ({total})
           </Link>
+          {abroadCount > 0 && (
+            <Link
+              href="/list?where=abroad"
+              className={[
+                "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                scope
+                  ? "border-transparent bg-coral-500 text-white"
+                  : "border-coral-200 bg-coral-50 text-coral-700 hover:bg-coral-100",
+              ].join(" ")}
+            >
+              <span aria-hidden="true">🌍</span> Back home ({abroadCount})
+            </Link>
+          )}
           {counts.map((c) => {
             const active = category === c.slug;
             const hue = categoryColor(c.slug);

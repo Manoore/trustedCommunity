@@ -8,6 +8,8 @@ import { idleState } from "@/lib/validation";
 const REASONS = [
   { value: "spam", label: "Spam or duplicate" },
   { value: "scam-or-fraud", label: "Scam or fraud" },
+  { value: "asked-for-money", label: "Asked me for money or a deposit" },
+  { value: "unsafe", label: "Made me feel unsafe" },
   { value: "wrong-category", label: "Wrong category" },
   { value: "unlicensed-work", label: "Advertising licensed work without a licence" },
   { value: "offensive", label: "Offensive or abusive" },
@@ -19,7 +21,7 @@ export function ReportForm({
   targetType,
   targetId,
 }: {
-  targetType: "listing" | "review" | "provider" | "message";
+  targetType: "listing" | "review" | "provider" | "message" | "help_post";
   targetId: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -36,7 +38,7 @@ export function ReportForm({
         onClick={() => setOpen(true)}
         className="text-xs text-ink-muted underline hover:text-ink"
       >
-        Report this {targetType}
+        Report this {targetType === "help_post" ? "post" : targetType}
       </button>
     );
   }

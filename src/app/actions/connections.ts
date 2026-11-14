@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { connections, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { connectionRequestEmail, sendEmail } from "@/lib/email";
+import { notify } from "@/lib/notifications";
 import { rateLimit, rateLimitMessage } from "@/lib/rate-limit";
 import { getSecondDegreeIds } from "@/lib/social";
 import { emailSchema, zodToState, type ActionState } from "@/lib/validation";
@@ -54,6 +55,12 @@ async function createConnectionRequest(
   });
 
   await sendEmail(connectionRequestEmail(target.email, userName));
+  await notify(target.id, {
+    kind: "connection_request",
+    title: `${userName} wants to connect`,
+    body: "Accept to see what each of you has chosen to share with connections.",
+    href: "/people",
+  });
 
   revalidatePath("/people");
   return { ok: true, message: `Request sent to ${target.name}.` };
@@ -141,7 +148,7 @@ export async function respondToConnectionAction(formData: FormData) {
 
   // Only the person who was asked may answer.
   const [row] = await db
-    .select({ id: connections.id })
+    .select({ id: connections.id, requesterId: connections.requesterId })
     .from(connections)
     .where(
       and(
@@ -160,6 +167,13 @@ export async function respondToConnectionAction(formData: FormData) {
       .update(connections)
       .set({ status: "accepted", respondedAt: new Date() })
       .where(eq(connections.id, connectionId));
+
+    await notify(row.requesterId, {
+      kind: "connection_accepted",
+      title: `${user.name} accepted your request`,
+      body: "You can now see each other's connection-only recommendations.",
+      href: "/discover",
+    });
   }
 
   revalidatePath("/people");

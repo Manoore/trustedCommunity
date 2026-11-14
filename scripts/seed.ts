@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, sql as conn } from "./_client";
 import {
   categories,
@@ -35,44 +35,53 @@ function randInt(min: number, max: number): number {
 
 /* ----------------------------------------------------------------- categories */
 
+/**
+ * The taxonomy is two levels (group -> category), so it is upserted in two bulk
+ * statements rather than one query per node. Same result, a handful of round
+ * trips instead of hundreds - which is the difference between seconds and
+ * minutes against a remote database.
+ */
 async function seedCategories() {
+  const toRow = (node: CategorySeed, parentId: string | null, sortOrder: number) => ({
+    parentId,
+    slug: node.slug,
+    name: node.name,
+    description: node.description ?? null,
+    licenseRequired: node.licenseRequired ?? false,
+    restricted: node.restricted ?? false,
+    professional: node.professional ?? false,
+    sortOrder,
+  });
+
+  const upsert = (rows: ReturnType<typeof toRow>[]) =>
+    db
+      .insert(categories)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: {
+          parentId: sql`excluded.parent_id`,
+          name: sql`excluded.name`,
+          description: sql`excluded.description`,
+          licenseRequired: sql`excluded.license_required`,
+          restricted: sql`excluded.restricted`,
+          professional: sql`excluded.professional`,
+          sortOrder: sql`excluded.sort_order`,
+        },
+      })
+      .returning({ id: categories.id, slug: categories.slug });
+
   const idBySlug = new Map<string, string>();
 
-  async function walk(nodes: CategorySeed[], parentId: string | null, depth: number) {
-    let sortOrder = 0;
-    for (const node of nodes) {
-      const existing = await db
-        .select({ id: categories.id })
-        .from(categories)
-        .where(eq(categories.slug, node.slug))
-        .limit(1);
+  const parents = await upsert(CATEGORY_TREE.map((node, i) => toRow(node, null, i)));
+  for (const row of parents) idBySlug.set(row.slug, row.id);
 
-      const values = {
-        parentId,
-        slug: node.slug,
-        name: node.name,
-        description: node.description ?? null,
-        licenseRequired: node.licenseRequired ?? false,
-        restricted: node.restricted ?? false,
-        sortOrder: sortOrder++,
-      };
+  const childRows = CATEGORY_TREE.flatMap((parent) =>
+    (parent.children ?? []).map((child, i) => toRow(child, idBySlug.get(parent.slug)!, i)),
+  );
+  const children = await upsert(childRows);
+  for (const row of children) idBySlug.set(row.slug, row.id);
 
-      let id: string;
-      if (existing.length) {
-        id = existing[0].id;
-        await db.update(categories).set(values).where(eq(categories.id, id));
-      } else {
-        const [row] = await db.insert(categories).values(values).returning({
-          id: categories.id,
-        });
-        id = row.id;
-      }
-      idBySlug.set(node.slug, id);
-      if (node.children?.length) await walk(node.children, id, depth + 1);
-    }
-  }
-
-  await walk(CATEGORY_TREE, null, 0);
   console.log(`Categories seeded: ${idBySlug.size}`);
   return idBySlug;
 }
@@ -368,6 +377,11 @@ async function seedDemoContent(idBySlug: Map<string, string>) {
 
 async function main() {
   const idBySlug = await seedCategories();
+
+  // `--categories-only` refreshes the taxonomy without touching demo content,
+  // which is what you want after the category list changes.
+  if (process.argv.includes("--categories-only")) return;
+
   await seedDemoContent(idBySlug);
   console.log("\nSign in with:");
   console.log("  admin@example.com / Password123!  (admin)");

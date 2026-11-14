@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Avatar, Badge, Button } from "@/components/ui";
 import { createShareLinkAction } from "@/app/actions/recommendations";
+import { countryName } from "@/lib/countries";
 import {
   avatarColor,
   categoryColor,
@@ -31,6 +32,7 @@ export type RecommendationCardData = {
   phone: string | null;
   city: string | null;
   state: string | null;
+  country?: string;
   websiteUrl: string | null;
   categoryName: string | null;
   categorySlug?: string | null;
@@ -59,7 +61,13 @@ export function RecommendationCard({
   showOwnerActions?: boolean;
   showRecommender?: boolean;
 }) {
-  const location = [item.city, item.state].filter(Boolean).join(", ");
+  const location = [
+    item.city,
+    item.state,
+    item.country && item.country !== "US" ? countryName(item.country) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
   const hue = categoryColor(item.groupSlug ?? item.categorySlug);
   const strength = strengthStyles[item.strength];
   const relationshipLabel =

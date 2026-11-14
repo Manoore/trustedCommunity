@@ -112,6 +112,7 @@ export async function getAsk(askId: string, viewerId: string) {
     .select({
       id: askResponses.id,
       note: askResponses.note,
+      hiredAt: askResponses.hiredAt,
       createdAt: askResponses.createdAt,
       responderName: users.name,
       providerName: providers.displayName,

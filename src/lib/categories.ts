@@ -21,6 +21,8 @@ export type CategorySeed = {
   description?: string;
   licenseRequired?: boolean;
   restricted?: boolean;
+  /** Healthcare/legal: hidden until ENABLE_PROFESSIONAL_CATEGORIES is set. */
+  professional?: boolean;
   children?: CategorySeed[];
 };
 
@@ -252,6 +254,71 @@ export const CATEGORY_TREE: CategorySeed[] = [
       { slug: "furniture-assembly", name: "Furniture Assembly" },
       { slug: "upholstery", name: "Upholstery & Restoration" },
       { slug: "sewing-alterations", name: "Sewing & Alterations" },
+    ],
+  },
+  {
+    slug: "newcomer-essentials",
+    name: "Newcomer Essentials",
+    description: "What most people need in their first weeks somewhere new.",
+    children: [
+      { slug: "ethnic-grocery", name: "Grocery & Food from Home" },
+      { slug: "mobile-plans", name: "Phone & Internet Plans" },
+      { slug: "banking-remittance", name: "Banking & Sending Money" },
+      { slug: "driving-school", name: "Driving Lessons" },
+      { slug: "furniture-rental", name: "Furniture & Household Setup" },
+      { slug: "community-centres", name: "Community Centres & Places of Worship" },
+    ],
+  },
+  {
+    slug: "documents-paperwork",
+    name: "Documents & Paperwork",
+    description: "The attestations, translations and photos every move seems to need.",
+    children: [
+      { slug: "document-attestation", name: "Document Attestation" },
+      { slug: "apostille-legalization", name: "Apostille & Legalization" },
+      { slug: "passport-photos", name: "Passport & ID Photos" },
+    ],
+  },
+  {
+    slug: "family-back-home",
+    name: "Family & Property Back Home",
+    description:
+      "Trusted people in another country: someone to look after a parent, a property, or paperwork you cannot do from here.",
+    children: [
+      { slug: "remote-property-care", name: "Property Care for Owners Abroad" },
+      { slug: "parents-care-coordination", name: "Care for Parents Abroad" },
+      { slug: "cross-border-tax", name: "Cross-Border Tax Help", licenseRequired: L },
+      { slug: "parcel-forwarding", name: "Courier & Parcel Forwarding" },
+      { slug: "overseas-local-services", name: "Local Services Abroad" },
+    ],
+  },
+  {
+    slug: "healthcare",
+    name: "Healthcare",
+    professional: true,
+    description:
+      "Contact details only — book through their own website or portal. Not medical advice, and not for emergencies.",
+    children: [
+      { slug: "family-doctor", name: "Family Doctor", professional: true, licenseRequired: L },
+      { slug: "pediatrician", name: "Pediatrician", professional: true, licenseRequired: L },
+      { slug: "dentist", name: "Dentist", professional: true, licenseRequired: L },
+      { slug: "eye-care", name: "Eye Care", professional: true, licenseRequired: L },
+      { slug: "physiotherapy", name: "Physiotherapy", professional: true, licenseRequired: L },
+      { slug: "pharmacy", name: "Pharmacy", professional: true, licenseRequired: L },
+      { slug: "urgent-care", name: "Urgent Care Clinic", professional: true, licenseRequired: L },
+    ],
+  },
+  {
+    slug: "legal-professional",
+    name: "Legal",
+    professional: true,
+    description:
+      "Contact details only — contact them directly. Not legal advice. Licensed attorneys only; beware anyone offering immigration help who is not.",
+    children: [
+      { slug: "immigration-attorney", name: "Immigration Attorney (licensed only)", professional: true, licenseRequired: L },
+      { slug: "family-law-attorney", name: "Family Law Attorney", professional: true, licenseRequired: L },
+      { slug: "real-estate-attorney", name: "Real Estate Attorney", professional: true, licenseRequired: L },
+      { slug: "business-attorney", name: "Business Attorney", professional: true, licenseRequired: L },
     ],
   },
   {

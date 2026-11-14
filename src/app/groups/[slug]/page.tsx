@@ -16,9 +16,16 @@ import {
 import { GroupTopList } from "@/components/group-top-list";
 import { RecommendationCard } from "@/components/recommendation-card";
 import { ShareBar } from "@/components/share-bar";
-import { leaveGroupAction, rotateInviteTokenAction } from "@/app/actions/groups";
+import { GroupSettingsForm } from "@/components/group-settings-form";
+import {
+  leaveGroupAction,
+  removeEntryAction,
+  removeMemberAction,
+  rotateInviteTokenAction,
+  unpinContactAction,
+} from "@/app/actions/groups";
 import { requireUser } from "@/lib/guards";
-import { getGroupRecommendations, getGroupTopContacts } from "@/lib/discover";
+import { getGroupPins, getGroupRecommendations, getGroupTopContacts } from "@/lib/discover";
 import { avatarColor, initials } from "@/lib/category-colors";
 import { pluralize } from "@/lib/format";
 import { getOrigin } from "@/lib/site";
@@ -77,7 +84,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
   // the member list.
   if (!membership) notFound();
 
-  const [members, shared, top, origin] = await Promise.all([
+  const [members, shared, top, origin, pins] = await Promise.all([
     db
       .select({ name: users.name, role: groupMembers.role, id: users.id })
       .from(groupMembers)
@@ -86,6 +93,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
     getGroupRecommendations(group.id, user.id),
     getGroupTopContacts(group.id, user.id),
     getOrigin(),
+    getGroupPins(group.id),
   ]);
 
   const canManage = membership.role === "owner" || membership.role === "admin";
@@ -108,6 +116,47 @@ export default async function GroupPage({ params, searchParams }: Props) {
       />
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+
+      {group.welcomeMessage && (
+        <Card className="warm-wash">
+          <p className="text-sm italic text-ink">“{group.welcomeMessage}”</p>
+        </Card>
+      )}
+
+      {pins.length > 0 && (
+        <section>
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold text-ink">
+              <span aria-hidden="true">📌</span> Start here
+            </h2>
+            <p className="text-sm text-ink-muted">Hand-picked by the people who run this group.</p>
+          </div>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {pins.map((pin) => (
+              <li
+                key={pin.providerId}
+                className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)]"
+              >
+                <span className="min-w-0">
+                  <Link href={`/p/${pin.slug}`} className="font-medium text-ink hover:underline">
+                    {pin.name}
+                  </Link>
+                  {pin.note && <span className="block truncate text-sm text-ink-muted">{pin.note}</span>}
+                </span>
+                {canManage && (
+                  <form action={unpinContactAction}>
+                    <input type="hidden" name="groupId" value={group.id} />
+                    <input type="hidden" name="providerId" value={pin.providerId} />
+                    <button type="submit" className="text-xs text-ink-muted underline hover:text-ink">
+                      Unpin
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {inviteUrl && (
         <Card className="warm-wash">
@@ -153,6 +202,8 @@ export default async function GroupPage({ params, searchParams }: Props) {
             items={top}
             groupId={group.id}
             returnTo={`/groups/${group.slug}`}
+            canManage={canManage}
+            pinnedIds={pins.map((p) => p.providerId)}
           />
         )}
       </section>
@@ -164,7 +215,18 @@ export default async function GroupPage({ params, searchParams }: Props) {
           </h2>
           <div className="stagger space-y-4">
             {shared.map((item) => (
-              <RecommendationCard key={item.id} item={item} showRecommender />
+              <div key={item.id}>
+                <RecommendationCard item={item} showRecommender />
+                {canManage && (
+                  <form action={removeEntryAction} className="mt-1 text-right">
+                    <input type="hidden" name="groupId" value={group.id} />
+                    <input type="hidden" name="recommendationId" value={item.id} />
+                    <button type="submit" className="text-xs text-ink-muted underline hover:text-red-600">
+                      Remove from this group
+                    </button>
+                  </form>
+                )}
+              </div>
             ))}
           </div>
         </section>
@@ -181,10 +243,37 @@ export default async function GroupPage({ params, searchParams }: Props) {
               <Avatar name={initials(m.name)} color={avatarColor(m.name)} size="sm" />
               {m.name}
               {m.role !== "member" && <Badge tone="brand">{m.role}</Badge>}
+              {canManage && m.role !== "owner" && m.id !== user.id && (
+                <form action={removeMemberAction}>
+                  <input type="hidden" name="groupId" value={group.id} />
+                  <input type="hidden" name="userId" value={m.id} />
+                  <button
+                    type="submit"
+                    aria-label={`Remove ${m.name} from the group`}
+                    className="ml-1 text-xs text-ink-muted hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </form>
+              )}
             </span>
           ))}
         </div>
       </section>
+
+      {canManage && (
+        <Card>
+          <h2 className="font-semibold text-ink">Group settings</h2>
+          <div className="mt-4 max-w-lg">
+            <GroupSettingsForm
+              groupId={group.id}
+              welcomeMessage={group.welcomeMessage}
+              memberLimit={group.memberLimit}
+              memberCount={members.length}
+            />
+          </div>
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Link

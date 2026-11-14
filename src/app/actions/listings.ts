@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { categories, listingMedia, listings, verifications } from "@/db/schema";
 import { assertProviderAccess, getCurrentUser } from "@/lib/auth";
 import { lookupZip } from "@/lib/geo";
+import { isCategoryBlocked } from "@/lib/professional";
 import { uniqueSlug } from "@/lib/slug";
 import { saveImage } from "@/lib/uploads";
 import { listingSchema, zodToState, type ActionState } from "@/lib/validation";
@@ -59,7 +60,7 @@ export async function createListingAction(
     .limit(1);
 
   if (!category) return { ok: false, fieldErrors: { categoryId: ["Pick a category."] } };
-  if (category.restricted) {
+  if (isCategoryBlocked(category)) {
     return {
       ok: false,
       message: `${category.name} is not accepted on this marketplace. See the content policy for why.`,
@@ -157,7 +158,7 @@ export async function updateListingAction(
     .from(categories)
     .where(eq(categories.id, parsed.data.categoryId))
     .limit(1);
-  if (!category || category.restricted) {
+  if (!category || isCategoryBlocked(category)) {
     return { ok: false, fieldErrors: { categoryId: ["Pick an accepted category."] } };
   }
   if (category.licenseRequired && !parsed.data.licenseNumber) {
