@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { sendConnectionRequestToUserAction } from "@/app/actions/connections";
 import { Avatar, Button } from "@/components/ui";
 import { avatarColor, initials } from "@/lib/category-colors";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export type SearchResult = {
   id: string;
@@ -14,7 +15,7 @@ export type SearchResult = {
 };
 
 export function ConnectionSearchResults({ results }: { results: SearchResult[] }) {
-  const [state, formAction] = useActionState(
+  const [state, formProps] = useFormAction(
     sendConnectionRequestToUserAction,
     idleState,
   );
@@ -40,7 +41,7 @@ export function ConnectionSearchResults({ results }: { results: SearchResult[] }
               {r.mutualName ? `Connected through ${r.mutualName}` : "In your extended network"}
             </p>
           </div>
-          <form action={formAction}>
+          <form {...formProps}>
             <input type="hidden" name="userId" value={r.id} />
             <Button type="submit" size="sm">
               Connect

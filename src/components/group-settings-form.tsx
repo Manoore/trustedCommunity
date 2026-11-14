@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { updateGroupSettingsAction } from "@/app/actions/groups";
 import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function GroupSettingsForm({
   groupId,
@@ -16,10 +17,10 @@ export function GroupSettingsForm({
   memberLimit: number | null;
   memberCount: number;
 }) {
-  const [state, formAction, pending] = useActionState(updateGroupSettingsAction, idleState);
+  const [state, formProps, pending] = useFormAction(updateGroupSettingsAction, idleState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="groupId" value={groupId} />
       {state.message && <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>}
 

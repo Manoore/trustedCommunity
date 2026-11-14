@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+
 import Link from "next/link";
 import { createInquiryAction } from "@/app/actions/inquiries";
 import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function InquiryForm({
   listingId,
@@ -19,7 +20,7 @@ export function InquiryForm({
   signedIn: boolean;
   defaults?: { name?: string; email?: string; phone?: string };
 }) {
-  const [state, formAction, pending] = useActionState(createInquiryAction, idleState);
+  const [state, formProps, pending] = useFormAction(createInquiryAction, idleState);
 
   if (!signedIn) {
     return (
@@ -39,7 +40,7 @@ export function InquiryForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="listingId" value={listingId} />
       <input type="hidden" name="listingSlug" value={listingSlug} />
 

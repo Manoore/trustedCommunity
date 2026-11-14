@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { requestClaimAction } from "@/app/actions/claims";
 import {
   Alert,
@@ -11,6 +11,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function ClaimForm({
   providerId,
@@ -19,13 +20,13 @@ export function ClaimForm({
   providerId: string;
   name: string;
 }) {
-  const [state, formAction, pending] = useActionState(requestClaimAction, idleState);
+  const [state, formProps, pending] = useFormAction(requestClaimAction, idleState);
   const [kind, setKind] = useState<"claim" | "removal">("removal");
 
   if (state.ok) return <Alert tone="success">{state.message}</Alert>;
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="providerId" value={providerId} />
 
       {state.message && <Alert tone="error">{state.message}</Alert>}

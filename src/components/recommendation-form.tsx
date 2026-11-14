@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -28,6 +28,7 @@ import {
   visibilityValues,
   type ActionState,
 } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -63,7 +64,7 @@ export function RecommendationForm({
   defaults?: RecommendationDefaults;
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, idleState);
+  const [state, formProps, pending] = useFormAction(action, idleState);
   const editing = Boolean(defaults?.id);
 
   const [kind, setKind] = useState<"business" | "individual">(defaults?.kind ?? "business");
@@ -92,7 +93,7 @@ export function RecommendationForm({
   );
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form {...formProps} className="space-y-6">
       {state.message && <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>}
 
       <Card className="space-y-4">

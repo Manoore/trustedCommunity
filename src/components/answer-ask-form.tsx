@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { answerAskAction } from "@/app/actions/asks";
 import { Alert, Button, Field, Select, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export type AnswerOption = { id: string; name: string; categoryName: string | null };
 
@@ -14,7 +15,7 @@ export function AnswerAskForm({
   askId: string;
   options: AnswerOption[];
 }) {
-  const [state, formAction, pending] = useActionState(answerAskAction, idleState);
+  const [state, formProps, pending] = useFormAction(answerAskAction, idleState);
 
   if (state.ok) return <Alert tone="success">{state.message}</Alert>;
 
@@ -28,7 +29,7 @@ export function AnswerAskForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="askId" value={askId} />
       {state.message && <Alert tone="error">{state.message}</Alert>}
 

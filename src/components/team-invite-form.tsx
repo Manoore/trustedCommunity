@@ -1,15 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { addTeamMemberAction } from "@/app/actions/providers";
 import { Alert, Button, Field, Input, Select } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function TeamInviteForm({ providerId }: { providerId: string }) {
-  const [state, formAction, pending] = useActionState(addTeamMemberAction, idleState);
+  const [state, formProps, pending] = useFormAction(addTeamMemberAction, idleState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="providerId" value={providerId} />
 
       {state.message && (

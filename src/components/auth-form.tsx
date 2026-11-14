@@ -1,15 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert, Button, Card, Field, Input } from "@/components/ui";
 import { idleState, type ActionState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
 export function AuthForm({ mode, action }: { mode: "login" | "signup"; action: Action }) {
-  const [state, formAction, pending] = useActionState(action, idleState);
+  const [state, formProps, pending] = useFormAction(action, idleState);
   const params = useSearchParams();
   const next = params.get("next") ?? "";
   const isSignup = mode === "signup";
@@ -31,7 +32,7 @@ export function AuthForm({ mode, action }: { mode: "login" | "signup"; action: A
           : "Pick up where you left off."}
       </p>
 
-      <form action={formAction} className="mt-6 space-y-4">
+      <form {...formProps} className="mt-6 space-y-4">
         <input type="hidden" name="next" value={next} />
 
         {state.message && <Alert tone="error">{state.message}</Alert>}

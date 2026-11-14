@@ -1,18 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { sendConnectionRequestAction } from "@/app/actions/connections";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function ConnectionInviteForm() {
-  const [state, formAction, pending] = useActionState(
+  const [state, formProps, pending] = useFormAction(
     sendConnectionRequestAction,
     idleState,
   );
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form {...formProps} className="space-y-3">
       {state.message && (
         <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
       )}

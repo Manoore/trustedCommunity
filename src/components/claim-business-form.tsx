@@ -1,15 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { claimBusinessAction } from "@/app/actions/business";
 import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function ClaimBusinessForm({ defaultEmail }: { defaultEmail?: string }) {
-  const [state, formAction, pending] = useActionState(claimBusinessAction, idleState);
+  const [state, formProps, pending] = useFormAction(claimBusinessAction, idleState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
       <Field label="Business name" htmlFor="name" errors={state.fieldErrors?.name} required>

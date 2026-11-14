@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { deleteMediaAction } from "@/app/actions/listings";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { RADIUS_LADDER } from "@/lib/geo-constants";
 import { idleState, type ActionState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -59,7 +60,7 @@ export function ListingForm({
   defaults?: ListingDefaults;
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, idleState);
+  const [state, formProps, pending] = useFormAction(action, idleState);
   const [categoryId, setCategoryId] = useState(defaults?.categoryId ?? "");
   const [priceType, setPriceType] = useState(defaults?.priceType ?? "quote");
   const [remoteOk, setRemoteOk] = useState(Boolean(defaults?.remoteOk));
@@ -74,7 +75,7 @@ export function ListingForm({
   const needsLicense = Boolean(selected?.licenseRequired);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form {...formProps} className="space-y-6">
       <input type="hidden" name="providerId" value={providerId} />
       {defaults?.id && <input type="hidden" name="listingId" value={defaults.id} />}
 

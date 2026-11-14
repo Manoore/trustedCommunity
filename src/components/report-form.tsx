@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { createReportAction } from "@/app/actions/reports";
 import { Alert, Button, Field, Select, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 const REASONS = [
   { value: "spam", label: "Spam or duplicate" },
@@ -25,7 +26,7 @@ export function ReportForm({
   targetId: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState(createReportAction, idleState);
+  const [state, formProps, pending] = useFormAction(createReportAction, idleState);
 
   if (state.ok) {
     return <Alert tone="success">{state.message}</Alert>;
@@ -44,7 +45,7 @@ export function ReportForm({
   }
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-line p-4">
+    <form {...formProps} className="space-y-3 rounded-lg border border-line p-4">
       <input type="hidden" name="targetType" value={targetType} />
       <input type="hidden" name="targetId" value={targetId} />
 

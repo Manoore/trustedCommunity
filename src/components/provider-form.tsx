@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { Alert, Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { idleState, type ActionState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -29,13 +30,13 @@ export function ProviderForm({
   defaults?: ProviderDefaults;
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, idleState);
+  const [state, formProps, pending] = useFormAction(action, idleState);
   const [type, setType] = useState<"individual" | "entity">(
     defaults?.type ?? "individual",
   );
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form {...formProps} className="space-y-6">
       {defaults?.id && <input type="hidden" name="providerId" value={defaults.id} />}
 
       {state.message && (

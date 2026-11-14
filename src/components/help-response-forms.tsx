@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { completeResponseAction, respondToPostAction } from "@/app/actions/help";
 import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function RespondForm({
   postId,
@@ -12,12 +13,12 @@ export function RespondForm({
   postId: string;
   direction: "offer" | "need";
 }) {
-  const [state, formAction, pending] = useActionState(respondToPostAction, idleState);
+  const [state, formProps, pending] = useFormAction(respondToPostAction, idleState);
 
   if (state.ok) return <Alert tone="success">{state.message}</Alert>;
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="postId" value={postId} />
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
@@ -52,12 +53,12 @@ export function RespondForm({
 }
 
 export function CompleteForm({ responseId }: { responseId: string }) {
-  const [state, formAction, pending] = useActionState(completeResponseAction, idleState);
+  const [state, formProps, pending] = useFormAction(completeResponseAction, idleState);
 
   if (state.ok) return <Alert tone="success">{state.message}</Alert>;
 
   return (
-    <form action={formAction} className="space-y-3 rounded-xl bg-surface-sunken p-4">
+    <form {...formProps} className="space-y-3 rounded-xl bg-surface-sunken p-4">
       <input type="hidden" name="responseId" value={responseId} />
       {state.message && <Alert tone="error">{state.message}</Alert>}
       <p className="text-sm font-medium text-ink">Did it happen? Say thanks.</p>

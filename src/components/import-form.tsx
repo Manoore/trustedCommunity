@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   confirmImportAction,
   previewImportAction,
@@ -9,6 +9,7 @@ import {
 import { Alert, Badge, Button, Card, Field, Select, Textarea } from "@/components/ui";
 import type { CategoryGroup } from "@/components/listing-form";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type ContactsApi = {
   select: (
@@ -25,10 +26,12 @@ export function ImportForm({
   /** Text handed over by the phone's share sheet. */
   initialText?: string;
 }) {
-  const [preview, previewAction, previewPending] = useActionState<
-    ImportPreviewState,
-    FormData
-  >(previewImportAction, idleState);
+  // The textarea already echoes `preview.raw`, so keep it as typed after a preview.
+  const [preview, previewProps, previewPending] = useFormAction<ImportPreviewState>(
+    previewImportAction,
+    idleState,
+    { resetOnSuccess: false },
+  );
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [pickerError, setPickerError] = useState<string | null>(null);
 
@@ -59,7 +62,7 @@ export function ImportForm({
       setPickerError("Could not open your contacts. You can paste them instead.");
     }
   }
-  const [confirm, confirmAction, confirmPending] = useActionState(
+  const [confirm, confirmProps, confirmPending] = useFormAction(
     confirmImportAction,
     idleState,
   );
@@ -77,7 +80,7 @@ export function ImportForm({
           </p>
         </div>
 
-        <form action={previewAction} className="space-y-3">
+        <form {...previewProps} className="space-y-3">
           {preview.message && (
             <Alert tone={preview.ok ? "info" : "error"}>{preview.message}</Alert>
           )}
@@ -120,7 +123,7 @@ export function ImportForm({
 
           {confirm.message && <Alert tone="error">{confirm.message}</Alert>}
 
-          <form action={confirmAction} className="space-y-4">
+          <form {...confirmProps} className="space-y-4">
             <Field label="File them under" htmlFor="categoryId" required>
               <Select id="categoryId" name="categoryId" defaultValue="" required>
                 <option value="" disabled>

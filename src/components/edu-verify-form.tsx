@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+
 import { confirmEduCodeAction, sendEduCodeAction } from "@/app/actions/college";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function EduVerifyForm({
   domain,
@@ -13,8 +14,8 @@ export function EduVerifyForm({
   domain: string | null;
   collegeName: string;
 }) {
-  const [sent, sendAction, sending] = useActionState(sendEduCodeAction, idleState);
-  const [confirmed, confirmAction, confirming] = useActionState(confirmEduCodeAction, idleState);
+  const [sent, sendProps, sending] = useFormAction(sendEduCodeAction, idleState);
+  const [confirmed, confirmProps, confirming] = useFormAction(confirmEduCodeAction, idleState);
 
   if (confirmed.ok) {
     return (
@@ -40,7 +41,7 @@ export function EduVerifyForm({
 
   return (
     <div className="space-y-5">
-      <form action={sendAction} className="space-y-3">
+      <form {...sendProps} className="space-y-3">
         {sent.message && <Alert tone={sent.ok ? "success" : "error"}>{sent.message}</Alert>}
         <Field
           label="Your student email"
@@ -64,7 +65,7 @@ export function EduVerifyForm({
       </form>
 
       {sent.ok && (
-        <form action={confirmAction} className="space-y-3 border-t border-line pt-5">
+        <form {...confirmProps} className="space-y-3 border-t border-line pt-5">
           {confirmed.message && <Alert tone="error">{confirmed.message}</Alert>}
           <Field
             label="6-digit code"

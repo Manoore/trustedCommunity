@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { createHelpPostAction } from "@/app/actions/help";
 import { Alert, Button, Card, Field, Input, Textarea } from "@/components/ui";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/help-constants";
 import { SAFETY_RULES } from "@/lib/arrival";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 type Direction = "offer" | "need";
 
@@ -75,14 +76,14 @@ export function HelpPostForm({
   defaultKind?: HelpKind;
   airport?: string | null;
 }) {
-  const [state, formAction, pending] = useActionState(createHelpPostAction, idleState);
+  const [state, formProps, pending] = useFormAction(createHelpPostAction, idleState);
   const [direction, setDirection] = useState<Direction>(defaultDirection);
   const [kind, setKind] = useState<HelpKind>(defaultKind);
   const copy = COPY[kind];
   const accommodation = ACCOMMODATION_KINDS.includes(kind);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form {...formProps} className="space-y-6">
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
       <Card className="space-y-4">

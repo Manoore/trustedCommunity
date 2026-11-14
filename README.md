@@ -215,6 +215,12 @@ and not a malformed US number.
 installable. Sharing a contact or text *to* the app lands on `/import` pre-filled, and
 `/import` uses the Contact Picker where the browser has one.
 
+**Forms keep what you typed when the server says no.** React 19 clears a form after its
+action runs, errors included. Every form goes through `useFormAction`
+(`src/lib/use-form-action.ts`) instead of `useActionState`: it intercepts the submit,
+dispatches the action itself, and clears the form only when the action succeeds and the
+page stays put. `action` is still on the form, so it submits without JavaScript.
+
 **Stripe and email are keys-optional.** Without keys the app runs and email is written to
 the server log. Set `RESEND_API_KEY` and `EMAIL_FROM` to deliver for real.
 
@@ -254,8 +260,6 @@ search, the share card, the duplicate-number notice, and Discover's degree group
   is written to the server log (and shown on screen in development only).
 - **Fake colleges.** Anyone can add a college, but verifying against it needs a real
   address on that domain, so the blast radius is small — not zero.
-- **A failed form submit clears the form** (React 19 resets uncontrolled forms after an
-  action). Server-side errors still show, but the user retypes.
 - **Not built, on purpose:** job referrals and community discounts.
 - **No email verification** on signup.
 - **Second-degree only.** The graph stops at friends-of-friends; there is no third degree.

@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { createAskAction } from "@/app/actions/asks";
 import { Alert, Button, Card, Field, Input, Select, Textarea } from "@/components/ui";
 import type { CategoryGroup } from "@/components/listing-form";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export type AskGroupOption = { id: string; name: string; memberCount: number };
 
@@ -17,11 +18,11 @@ export function AskForm({
   groups: AskGroupOption[];
   hasConnections: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(createAskAction, idleState);
+  const [state, formProps, pending] = useFormAction(createAskAction, idleState);
   const [toConnections, setToConnections] = useState(hasConnections);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form {...formProps} className="space-y-6">
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
       <Card className="space-y-4">

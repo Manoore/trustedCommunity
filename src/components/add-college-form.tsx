@@ -1,15 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { createCollegeAction } from "@/app/actions/college";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export function AddCollegeForm() {
-  const [state, formAction, pending] = useActionState(createCollegeAction, idleState);
+  const [state, formProps, pending] = useFormAction(createCollegeAction, idleState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
       <Field label="College name" htmlFor="name" errors={state.fieldErrors?.name} required>

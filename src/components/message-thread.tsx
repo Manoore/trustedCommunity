@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { sendMessageAction } from "@/app/actions/inquiries";
 import { Alert, Button, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 export type ThreadMessage = {
   id: string;
@@ -26,7 +27,7 @@ export function MessageThread({
   canReply: boolean;
   replyHint?: string;
 }) {
-  const [state, formAction, pending] = useActionState(sendMessageAction, idleState);
+  const [state, formProps, pending] = useFormAction(sendMessageAction, idleState);
 
   return (
     <div className="space-y-4">
@@ -63,7 +64,7 @@ export function MessageThread({
       </ol>
 
       {canReply ? (
-        <form action={formAction} className="space-y-2">
+        <form {...formProps} className="space-y-2">
           <input type="hidden" name="inquiryId" value={inquiryId} />
           {state.message && <Alert tone="error">{state.message}</Alert>}
           <label htmlFor="body" className="sr-only">

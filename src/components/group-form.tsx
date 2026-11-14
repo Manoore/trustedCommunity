@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+
 import { createGroupAction } from "@/app/actions/groups";
 import { Alert, Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { idleState } from "@/lib/validation";
+import { useFormAction } from "@/lib/use-form-action";
 
 const KINDS = [
   { value: "neighborhood", label: "Neighbourhood or street" },
@@ -16,10 +17,10 @@ const KINDS = [
 ];
 
 export function GroupForm() {
-  const [state, formAction, pending] = useActionState(createGroupAction, idleState);
+  const [state, formProps, pending] = useFormAction(createGroupAction, idleState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       {state.message && <Alert tone="error">{state.message}</Alert>}
 
       <Field label="Group name" htmlFor="name" errors={state.fieldErrors?.name} required>
