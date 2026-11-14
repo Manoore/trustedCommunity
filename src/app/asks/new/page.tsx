@@ -3,12 +3,14 @@ import { Alert, PageHeader } from "@/components/ui";
 import { AskForm } from "@/components/ask-form";
 import { getCategoryOptions } from "@/lib/queries";
 import { requireUser } from "@/lib/guards";
+import { requireVerifiedPhonePage } from "@/lib/phone-gate";
 import { getConnectionIds, getMyGroups } from "@/lib/social";
 
 export const metadata: Metadata = { title: "Ask my network" };
 
 export default async function NewAskPage() {
   const user = await requireUser("/asks/new");
+  await requireVerifiedPhonePage(user.id, "/asks/new");
 
   const [categoryGroups, groups, connectionIds] = await Promise.all([
     getCategoryOptions(),

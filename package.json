@@ -24,6 +24,8 @@
     "seed:colleges": "tsx scripts/seed-colleges.ts",
     "seed:arrival": "tsx scripts/seed-arrival.ts",
     "check:arrival": "tsx scripts/check-arrival.ts",
+    "check:phone": "tsx scripts/check-phone.ts",
+    "db:migrate:phone": "tsx scripts/migrate-phone.ts",
     "check:imports": "tsx scripts/check-client-imports.ts",
     "check:network": "tsx scripts/check-network.ts",
     "check:masking": "tsx scripts/check-masking.ts",

@@ -40,6 +40,8 @@ export const RATE_LIMITS = {
   edu: { limit: 5, windowMs: 60 * 60_000 },
   eduConfirm: { limit: 15, windowMs: 60 * 60_000 },
   college: { limit: 5, windowMs: 60 * 60_000 },
+  phone: { limit: 5, windowMs: 60 * 60_000 },
+  phoneConfirm: { limit: 15, windowMs: 60 * 60_000 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

@@ -14,6 +14,7 @@ import {
   verifications,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { PHONE_REQUIRED_MESSAGE, phoneGateBlocks } from "@/lib/phone-gate";
 import { countryName, isKnownCountry } from "@/lib/countries";
 import { getGroupIds } from "@/lib/social";
 import { lookupZip } from "@/lib/geo";
@@ -63,6 +64,7 @@ export async function saveRecommendationAction(
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/recommendations/new");
+  if (await phoneGateBlocks(user.id)) return { ok: false, message: PHONE_REQUIRED_MESSAGE };
 
   const limit = await rateLimit("recommendation", user.id);
   if (!limit.ok) return { ok: false, message: rateLimitMessage(limit) };

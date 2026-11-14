@@ -15,6 +15,7 @@ import {
   recommendations,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { PHONE_REQUIRED_MESSAGE, phoneGateBlocks } from "@/lib/phone-gate";
 import { lookupZip } from "@/lib/geo";
 import { notify } from "@/lib/notifications";
 import { uniqueSlug } from "@/lib/slug";
@@ -46,6 +47,7 @@ export async function createGroupAction(
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/groups");
+  if (await phoneGateBlocks(user.id)) return { ok: false, message: PHONE_REQUIRED_MESSAGE };
 
   const parsed = groupSchema.safeParse({
     name: formData.get("name"),

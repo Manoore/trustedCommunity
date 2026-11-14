@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { askResponses, askTargets, asks, recommendations, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { PHONE_REQUIRED_MESSAGE, phoneGateBlocks } from "@/lib/phone-gate";
 import { askAnsweredEmail, askBroadcastEmail, sendEmail } from "@/lib/email";
 import { notify, notifyMany } from "@/lib/notifications";
 import { getAsk, getAskRecipients, getIncomingAsks } from "@/lib/asks";
@@ -32,6 +33,7 @@ export async function createAskAction(
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/asks/new");
+  if (await phoneGateBlocks(user.id)) return { ok: false, message: PHONE_REQUIRED_MESSAGE };
 
   const limit = await rateLimit("ask", user.id);
   if (!limit.ok) return { ok: false, message: rateLimitMessage(limit) };

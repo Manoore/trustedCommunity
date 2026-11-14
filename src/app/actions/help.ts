@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { helpPosts, helpResponses } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { PHONE_REQUIRED_MESSAGE, phoneGateBlocks } from "@/lib/phone-gate";
 import { getUserCollegeState, isVerifiedMember } from "@/lib/colleges";
 import { FAIR_HOUSING_MESSAGE, findProtectedPreference } from "@/lib/fair-housing";
 import { ACCOMMODATION_KINDS, KIND_LABELS } from "@/lib/help";
@@ -68,6 +69,7 @@ export async function createHelpPostAction(
   formData: FormData,
 ): Promise<ActionState> {
   const { user, college } = await requireVerifiedStudent();
+  if (await phoneGateBlocks(user.id)) return { ok: false, message: PHONE_REQUIRED_MESSAGE };
 
   const limit = await rateLimit("help", user.id);
   if (!limit.ok) return { ok: false, message: rateLimitMessage(limit) };
@@ -176,6 +178,7 @@ export async function respondToPostAction(
   formData: FormData,
 ): Promise<ActionState> {
   const { user } = await requireVerifiedStudent();
+  if (await phoneGateBlocks(user.id)) return { ok: false, message: PHONE_REQUIRED_MESSAGE };
 
   const limit = await rateLimit("help", user.id);
   if (!limit.ok) return { ok: false, message: rateLimitMessage(limit) };

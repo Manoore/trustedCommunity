@@ -222,12 +222,16 @@ export const users = pgTable(
     /** The address they proved they control. One student address, one account. */
     eduEmail: text("edu_email"),
     eduVerifiedAt: timestamp("edu_verified_at", { withTimezone: true }),
+    /** E.164 number they proved they can receive a code on. One number, one account. */
+    verifiedPhone: text("verified_phone"),
+    phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     unique("users_email_unique").on(t.email),
     unique("users_edu_email_unique").on(t.eduEmail),
+    unique("users_verified_phone_unique").on(t.verifiedPhone),
   ],
 );
 
@@ -937,6 +941,34 @@ export const emailVerifications = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("email_verifications_user_idx").on(t.userId)],
+);
+
+/* ------------------------------------------------------ phone verification */
+
+/**
+ * One row per code sent to a phone. Only a hash of the code is kept. The same
+ * table is the audit trail the send throttles count against (per number, and
+ * per day across the whole site).
+ */
+export const phoneVerifications = pgTable(
+  "phone_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    channel: text("channel").notNull().default("whatsapp"),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("phone_verifications_user_idx").on(t.userId),
+    index("phone_verifications_phone_idx").on(t.phone, t.createdAt),
+  ],
 );
 
 /* ------------------------------------------------------------- group pins */

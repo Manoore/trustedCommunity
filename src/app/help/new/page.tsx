@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui";
 import { HelpPostForm } from "@/components/help-post-form";
 import { getCurrentUser } from "@/lib/auth";
 import { getUserCollegeState } from "@/lib/colleges";
+import { requireVerifiedPhonePage } from "@/lib/phone-gate";
 import type { HelpKind } from "@/lib/help";
 
 export const metadata: Metadata = { title: "New post" };
@@ -19,6 +20,7 @@ export default async function NewHelpPostPage({ searchParams }: Props) {
 
   const state = await getUserCollegeState(user.id);
   if (!state.college || !state.verified) redirect("/arrive");
+  await requireVerifiedPhonePage(user.id, "/help/new");
 
   const direction = sp.direction === "offer" ? "offer" : "need";
   const kind = KINDS.includes(sp.kind as HelpKind) ? (sp.kind as HelpKind) : "pickup";

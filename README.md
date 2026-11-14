@@ -108,6 +108,8 @@ All use password `Password123!`.
 | `npm run seed:colleges` | Colleges that anchor communities |
 | `npm run seed:arrival` | Demo: verified students, help posts, a contact back home |
 | `npm run check:arrival` | Arrival board: verification, contact reveal, fair-housing guard |
+| `npm run db:migrate:phone` | Phone verification columns and table (additive, safe to repeat) |
+| `npm run check:phone` | Meta request shape, error mapping, one-number-one-account |
 | `npm run check:imports` | No client component imports a `server-only` module |
 | `npm run check:network` | Visibility scopes, groups, discovery, asks |
 | `npm run check:masking <token>` | Masking on the parked directory |
@@ -207,6 +209,22 @@ the profile carries a "not medical or legal advice" card and a "Licence not chec
 badge, and each new entry queues a row in `/admin/verifications`. Have a lawyer read
 `/legal/*` before turning it on.
 
+**Phone numbers are verified over WhatsApp.** `/verify/phone` sends a 6-digit code through
+the WhatsApp Business Platform (Cloud API). Hashed with the user *and* the number, 10-minute
+life, 5 guesses, one number per account. Sends are throttled per number (3/hour, 60s apart)
+and site-wide (`OTP_DAILY_CAP`, default 300/day) so a script cannot run up the bill.
+`REQUIRE_PHONE_VERIFICATION=true` puts the gate at the first real action (recommend, ask,
+new group, help post), not at sign-up. Off by default.
+
+Going live needs, in order: a Meta Business account and business verification (typically
+1 to 2 weeks), a WhatsApp number, and an approved AUTHENTICATION template with a copy-code
+button; then the four `WHATSAPP_*` variables. Twilio does not shortcut this: it has required
+your own sender since March 2024. To prove delivery once keys exist, set
+`REQUIRE_PHONE_VERIFICATION=true`, open `/verify/phone`, enter your own WhatsApp number
+and confirm the code arrives. In Meta's test mode the number must first be added as a
+test recipient, otherwise the site says so. `npm run check:phone` proves the request
+shape and error handling, not delivery to a handset.
+
 **Contacts can live abroad.** `normalizePhone(input, country)` parses a number in its own
 country's format, so "my aunt's home helper in Hyderabad" is a first-class recommendation
 and not a malformed US number.
@@ -256,6 +274,10 @@ search, the share card, the duplicate-number notice, and Discover's degree group
   the effective limit multiplies and a restart clears them. Move to Redis before scaling
   out. `src/lib/rate-limit.ts` says so at the top.
 - **Import files under one paste.** No file upload yet — you paste the vCard text.
+- **WhatsApp codes cannot be tested end to end without Meta credentials.** Not built yet:
+  SMS or email fallback when WhatsApp fails, delivery-status webhooks, more than one
+  verified number per account, and claiming a profile by verified number (it needs a
+  decision about not revealing private entries).
 - **`.edu` codes need an email key on a deployed site.** Without `RESEND_API_KEY` the code
   is written to the server log (and shown on screen in development only).
 - **Fake colleges.** Anyone can add a college, but verifying against it needs a real

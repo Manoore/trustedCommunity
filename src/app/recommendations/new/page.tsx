@@ -4,12 +4,14 @@ import { RecommendationForm } from "@/components/recommendation-form";
 import { saveRecommendationAction } from "@/app/actions/recommendations";
 import { getCategoryOptions } from "@/lib/queries";
 import { requireUser } from "@/lib/guards";
+import { requireVerifiedPhonePage } from "@/lib/phone-gate";
 import { getMyGroups } from "@/lib/social";
 
 export const metadata: Metadata = { title: "Add a recommendation" };
 
 export default async function NewRecommendationPage() {
   const user = await requireUser("/recommendations/new");
+  await requireVerifiedPhonePage(user.id, "/recommendations/new");
   const [groups, myGroups] = await Promise.all([
     getCategoryOptions(),
     getMyGroups(user.id),
